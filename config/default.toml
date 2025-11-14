@@ -1,0 +1,11 @@
+[server]
+host = "127.0.0.1"
+port = 8080
+
+[database]
+url = "postgres://postgres:password@localhost/hserver_db"
+max_connections = 10
+
+[application]
+name = "Hotel Management System"
+environment = "development"
