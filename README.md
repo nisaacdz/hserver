@@ -60,6 +60,18 @@ APP_DATABASE__MAX_CONNECTIONS=20
 
 - `GET /health` - Health check endpoint
 - `GET /config` - View current configuration (server and application info)
+- `GET /swagger-ui/` - Swagger UI for interactive API documentation
+- `GET /api-docs/openapi.json` - OpenAPI specification in JSON format
+
+## API Documentation
+
+The API is fully documented using OpenAPI 3.0 specification. You can explore and test the API interactively by:
+
+1. Start the server: `cargo run`
+2. Open your browser and navigate to: http://localhost:8080/swagger-ui/
+3. The Swagger UI provides an interactive interface to test all API endpoints
+
+The OpenAPI specification is also available as JSON at: http://localhost:8080/api-docs/openapi.json
 
 ## Project Structure
 

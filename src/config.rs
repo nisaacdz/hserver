@@ -1,6 +1,7 @@
 use config::{Config, ConfigError, Environment, File};
 use serde::Deserialize;
 use std::sync::LazyLock;
+use utoipa::ToSchema;
 
 static SETTINGS: LazyLock<Settings> = LazyLock::new(|| {
     Settings::new().expect("Failed to load configuration")
@@ -13,19 +14,19 @@ pub struct Settings {
     pub application: ApplicationSettings,
 }
 
-#[derive(Debug, Deserialize, serde::Serialize, Clone)]
+#[derive(Debug, Deserialize, serde::Serialize, Clone, ToSchema)]
 pub struct ServerSettings {
     pub host: String,
     pub port: u16,
 }
 
-#[derive(Debug, Deserialize, serde::Serialize, Clone)]
+#[derive(Debug, Deserialize, serde::Serialize, Clone, ToSchema)]
 pub struct DatabaseSettings {
     pub url: String,
     pub max_connections: u32,
 }
 
-#[derive(Debug, Deserialize, serde::Serialize, Clone)]
+#[derive(Debug, Deserialize, serde::Serialize, Clone, ToSchema)]
 pub struct ApplicationSettings {
     pub name: String,
     pub environment: String,
