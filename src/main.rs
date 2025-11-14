@@ -28,8 +28,7 @@ async fn main() -> std::io::Result<()> {
     // Initialize logger
     env_logger::init_from_env(env_logger::Env::new().default_filter_or("info"));
 
-    // Initialize configuration (load once at startup)
-    Settings::init().expect("Failed to load configuration");
+    // Get configuration (lazily initialized on first access)
     let settings = Settings::get();
 
     log::info!(
