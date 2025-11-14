@@ -1,32 +1,36 @@
-use actix_web::{http::StatusCode, HttpResponse, ResponseError};
-use std::fmt;
+use actix_web::{http::StatusCode, HttpResponseBuilder, ResponseError};
+use serde::Serialize;
+use std::fmt::{Debug, Display, Formatter};
 
 #[derive(Debug)]
 pub struct AppError {
+    pub message: Option<String>,
+    pub cause: Option<Box<dyn std::error::Error>>,
     pub status: StatusCode,
+}
+
+#[derive(Debug, Serialize)]
+struct AppErrorBody {
     pub message: String,
-    pub cause: Option<String>,
 }
 
 impl AppError {
     pub fn new(status: StatusCode, message: impl Into<String>) -> Self {
-        Self {
+        AppError {
             status,
-            message: message.into(),
+            message: Some(message.into()),
             cause: None,
         }
     }
 
-    pub fn with_cause(
-        status: StatusCode,
-        message: impl Into<String>,
-        cause: impl Into<String>,
-    ) -> Self {
-        Self {
-            status,
-            message: message.into(),
-            cause: Some(cause.into()),
-        }
+    pub fn message(mut self, message: &str) -> Self {
+        self.message = Some(message.to_string());
+        self
+    }
+
+    pub fn cause<E: std::error::Error + 'static>(mut self, cause: E) -> Self {
+        self.cause = Some(Box::new(cause));
+        self
     }
 
     pub fn internal_error(message: impl Into<String>) -> Self {
@@ -46,27 +50,26 @@ impl AppError {
     }
 }
 
-impl fmt::Display for AppError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.message)?;
-        if let Some(cause) = &self.cause {
-            write!(f, " - Cause: {}", cause)?;
+impl Display for AppError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match (&self.cause, &self.message) {
+            (Some(cause), Some(message)) => write!(f, "{}: {}", message, cause),
+            (Some(cause), None) => write!(f, "{}", cause),
+            (None, Some(message)) => write!(f, "{}", message),
+            (None, None) => write!(f, "{}", self.status.canonical_reason().unwrap()),
         }
-        Ok(())
     }
 }
 
 impl ResponseError for AppError {
-    fn status_code(&self) -> StatusCode {
+    fn status_code(&self) -> actix_web::http::StatusCode {
         self.status
     }
 
-    fn error_response(&self) -> HttpResponse {
-        let body = serde_json::json!({
-            "error": self.message,
-            "cause": self.cause,
-        });
-        HttpResponse::build(self.status).json(body)
+    fn error_response(&self) -> actix_web::HttpResponse {
+        HttpResponseBuilder::new(self.status_code()).json(AppErrorBody {
+            message: format!("{}", self),
+        })
     }
 }
 
@@ -74,31 +77,19 @@ impl From<diesel::result::Error> for AppError {
     fn from(err: diesel::result::Error) -> Self {
         match err {
             diesel::result::Error::NotFound => Self::not_found("Resource not found"),
-            _ => Self::with_cause(
-                StatusCode::INTERNAL_SERVER_ERROR,
-                "Database error",
-                err.to_string(),
-            ),
+            _ => Self::new(StatusCode::INTERNAL_SERVER_ERROR, "Database error").cause(err),
         }
     }
 }
 
 impl From<deadpool::managed::PoolError<diesel_async::pooled_connection::PoolError>> for AppError {
     fn from(err: deadpool::managed::PoolError<diesel_async::pooled_connection::PoolError>) -> Self {
-        Self::with_cause(
-            StatusCode::INTERNAL_SERVER_ERROR,
-            "Database pool error",
-            err.to_string(),
-        )
+        Self::new(StatusCode::INTERNAL_SERVER_ERROR, "Database pool error").cause(err)
     }
 }
 
 impl From<config::ConfigError> for AppError {
     fn from(err: config::ConfigError) -> Self {
-        Self::with_cause(
-            StatusCode::INTERNAL_SERVER_ERROR,
-            "Configuration error",
-            err.to_string(),
-        )
+        Self::new(StatusCode::INTERNAL_SERVER_ERROR, "Configuration error").cause(err)
     }
 }
