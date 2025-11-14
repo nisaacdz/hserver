@@ -1,8 +1,10 @@
 use config::{Config, ConfigError, Environment, File};
 use serde::Deserialize;
-use std::sync::OnceLock;
+use std::sync::LazyLock;
+use utoipa::ToSchema;
 
-static SETTINGS: OnceLock<Settings> = OnceLock::new();
+static SETTINGS: LazyLock<Settings> =
+    LazyLock::new(|| Settings::new().expect("Failed to load configuration"));
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct Settings {
@@ -11,19 +13,19 @@ pub struct Settings {
     pub application: ApplicationSettings,
 }
 
-#[derive(Debug, Deserialize, serde::Serialize, Clone)]
+#[derive(Debug, Deserialize, serde::Serialize, Clone, ToSchema)]
 pub struct ServerSettings {
     pub host: String,
     pub port: u16,
 }
 
-#[derive(Debug, Deserialize, serde::Serialize, Clone)]
+#[derive(Debug, Deserialize, serde::Serialize, Clone, ToSchema)]
 pub struct DatabaseSettings {
     pub url: String,
     pub max_connections: u32,
 }
 
-#[derive(Debug, Deserialize, serde::Serialize, Clone)]
+#[derive(Debug, Deserialize, serde::Serialize, Clone, ToSchema)]
 pub struct ApplicationSettings {
     pub name: String,
     pub environment: String,
@@ -50,28 +52,10 @@ impl Settings {
         config.try_deserialize()
     }
 
-    /// Initialize the global settings
-    /// This must be called once at application startup
-    pub fn init() -> Result<(), ConfigError> {
-        let settings = Self::new()?;
-        SETTINGS
-            .set(settings)
-            .map_err(|_| ConfigError::Message("Settings already initialized".to_string()))?;
-        Ok(())
-    }
-
     /// Get a reference to the global settings
-    /// Panics if settings have not been initialized
+    /// The settings are lazily initialized on first access
     pub fn get() -> &'static Settings {
-        SETTINGS
-            .get()
-            .expect("Settings not initialized. Call Settings::init() first")
-    }
-
-    /// Try to get a reference to the global settings
-    /// Returns None if settings have not been initialized
-    pub fn try_get() -> Option<&'static Settings> {
-        SETTINGS.get()
+        &SETTINGS
     }
 }
 
