@@ -33,7 +33,7 @@ mod tests {
 
     #[test]
     fn test_api_response_success() {
-        use crate::error::ApiResponse;
+        use crate::response::ApiResponse;
         
         let response = ApiResponse::success("test data");
         assert!(response.success);
@@ -43,7 +43,7 @@ mod tests {
 
     #[test]
     fn test_api_response_success_with_message() {
-        use crate::error::ApiResponse;
+        use crate::response::ApiResponse;
         
         let response = ApiResponse::success_with_message("test data", "Operation successful");
         assert!(response.success);
@@ -53,7 +53,7 @@ mod tests {
 
     #[test]
     fn test_api_response_error() {
-        use crate::error::ApiResponse;
+        use crate::response::ApiResponse;
         
         let response: ApiResponse<()> = ApiResponse::error("Something went wrong");
         assert!(!response.success);
@@ -63,7 +63,7 @@ mod tests {
 
     #[test]
     fn test_api_response_success_no_data() {
-        use crate::error::ApiResponse;
+        use crate::response::ApiResponse;
         
         let response = ApiResponse::success_no_data();
         assert!(response.success);
@@ -73,7 +73,7 @@ mod tests {
 
     #[test]
     fn test_api_response_success_message() {
-        use crate::error::ApiResponse;
+        use crate::response::ApiResponse;
         
         let response = ApiResponse::success_message("Action completed");
         assert!(response.success);
