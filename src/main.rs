@@ -2,8 +2,8 @@ use actix_web::{web, App, HttpResponse, HttpServer, Responder};
 use hserver::config::{ApplicationSettings, ServerSettings, Settings};
 use hserver::db;
 use serde::Serialize;
-use utoipa::ToSchema;
 use utoipa::OpenApi;
+use utoipa::ToSchema;
 use utoipa_swagger_ui::SwaggerUi;
 
 /// Health check response
@@ -125,8 +125,7 @@ async fn main() -> std::io::Result<()> {
             .route("/health", web::get().to(health_check))
             .route("/config", web::get().to(get_config))
             .service(
-                SwaggerUi::new("/swagger-ui/{_:.*}")
-                    .url("/api-docs/openapi.json", openapi.clone())
+                SwaggerUi::new("/swagger-ui/{_:.*}").url("/api-docs/openapi.json", openapi.clone()),
             )
     })
     .bind((server_host, server_port))?

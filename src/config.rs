@@ -3,9 +3,8 @@ use serde::Deserialize;
 use std::sync::LazyLock;
 use utoipa::ToSchema;
 
-static SETTINGS: LazyLock<Settings> = LazyLock::new(|| {
-    Settings::new().expect("Failed to load configuration")
-});
+static SETTINGS: LazyLock<Settings> =
+    LazyLock::new(|| Settings::new().expect("Failed to load configuration"));
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct Settings {
