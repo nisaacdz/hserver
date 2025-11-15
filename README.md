@@ -1,10 +1,14 @@
-<a href="https://github.com/snamiki1212/realworld-v1-rust-actix-web-diesel"><img src="https://user-images.githubusercontent.com/26793088/168470794-337f3e7f-9c94-4cae-9505-1684b3251de5.png" alt="header"></a>
+# hserver
 
-<a href="https://github.com/snamiki1212/realworld-v1-rust-actix-web-diesel/actions?query=branch%3Amain"><img src="https://github.com/snamiki1212/realworld-v1-rust-actix-web-diesel/actions/workflows/ci.yml/badge.svg?branch=main" alt="badge" /></a>
+A modern Rust web server using `actix-web` 4.x and `diesel-async` with PostgreSQL.
 
-# Overview
+## Overview
 
-Realworld App using `Rust`, `actix-web`, and `diesel`.
+This is a modernized version of the project with:
+- **Async database operations** using `diesel-async` 0.7
+- **Connection pooling** with `deadpool`  
+- **Updated dependencies** - All dependencies updated to latest stable versions
+- **Simplified structure** - Clean architecture with minimal boilerplate
 
 ## Getting Started
 
@@ -38,43 +42,42 @@ Running E2E tests using [POSTMAN scripts](https://github.com/gothinkster/realwor
 $ APIURL=http://localhost:8080/api zsh e2e/run-api-tests.sh
 ```
 
-## Tech Stacks
+## Tech Stack
 
-- Rust Edition 2021
-- ActixWeb 4.x
-- Diesel 2.x
+- **Rust Edition 2021**
+- **Actix-Web 4.11** - Fast, pragmatic web framework
+- **Diesel 2.3** + **diesel-async 0.7** - Async ORM and query builder
+- **PostgreSQL** - Database
+- **Deadpool** - Async connection pooling
+- **Chrono 0.4** - Date/time handling
+- **Serde 1.0** - Serialization
+- **jsonwebtoken 10.2** - JWT auth (with rust_crypto)
+- **bcrypt 0.17** - Password hashing
+- **dotenvy 0.15** - Environment configuration
 
 ## Architecture
 
-- Clean Architecture
-- DI container using Constructor Injection with dynamic dispatch ([src/utils/di.rs](https://github.com/snamiki1212/realworld-v1-rust-actix-web-diesel/blob/main/src/utils/di.rs))
+Clean architecture with async/await support:
 
-```mermaid
-flowchart TD
-    Client(("Client"))
-    Route["Middleware + Route <br><br>/src/app/drivers/{middlewares, route}"]
-    Controller["Controller<br><br>/src/app/features/[feature]/controllers.rs"]
-    Presenter["Presenter<br><br>/src/app/features/[feature]/presenters.rs"]
-    Usecase["Usecase<br><br>/src/app/features/[feature]/usecases.rs"]
-    Repository["Repository<br><br>/src/app/features/[feature]/repositories.rs"]
-    Entity["Entity<br><br>/src/app/features/[feature]/entities.rs"]
-    DB[(Database)]
-
-    %% Top to Bottom
-    Client --Request--> Route
-    Route --> Controller
-    Controller --> Usecase
-    Usecase --> Repository
-    Repository --> Entity
-    Entity --> DB
-
-    %% Bottom to Top
-    DB -.-> Entity
-    Entity -.-> Repository
-    Repository -.-> Usecase
-    Usecase -.-> Presenter
-    Presenter -.Response.-> Client
 ```
+/src
+  /app
+    /drivers         - Middleware & routing
+    /features        - Feature modules (user, etc.)
+      /user
+        entities.rs  - Data models
+        repository.rs - Async database operations
+  /utils             - Database pool, DI, helpers
+  schema.rs          - Diesel schema
+  error.rs           - Error types (AppError pattern)
+```
+
+### Key Patterns
+
+- **AppError** - Unified error handling with HTTP response mapping
+- **Async repositories** - All database operations use async/await
+- **Connection pooling** - Deadpool for efficient async connection management
+- **Clean separation** - Routes → Repositories → Database
 
 ## LICENSE
 
