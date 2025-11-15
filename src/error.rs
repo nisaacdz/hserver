@@ -1,87 +1,112 @@
-use actix_web::{http::StatusCode, HttpResponse};
+use actix_web::{http::StatusCode, HttpResponseBuilder};
 use bcrypt::BcryptError;
-use deadpool::managed::PoolError;
 use diesel::result::{DatabaseErrorKind, Error as DieselError};
 use jsonwebtoken::errors::{Error as JwtError, ErrorKind as JwtErrorKind};
-use serde_json::json;
-use serde_json::Value as JsonValue;
 use std::convert::From;
-use thiserror::Error;
 use uuid::Error as UuidError;
 
-#[derive(Error, Debug)]
-pub enum AppError {
-    // 401
-    #[error("Unauthorized: {}", _0)]
-    Unauthorized(JsonValue),
+use serde::Serialize;
+use std::fmt::{Debug, Display, Formatter};
 
-    // 403
-    #[error("Forbidden: {}", _0)]
-    Forbidden(JsonValue),
-
-    // 404
-    #[error("Not Found: {}", _0)]
-    NotFound(JsonValue),
-
-    // 422
-    #[error("Unprocessable Entity: {}", _0)]
-    UnprocessableEntity(JsonValue),
-
-    // 500
-    #[error("Internal Server Error")]
-    InternalServerError,
+#[derive(Debug)]
+pub struct AppError {
+    pub message: Option<String>,
+    pub cause: Option<Box<dyn std::error::Error>>,
+    pub status: StatusCode,
 }
 
-impl actix_web::error::ResponseError for AppError {
-    fn error_response(&self) -> HttpResponse {
-        match self {
-            AppError::Unauthorized(ref msg) => HttpResponse::Unauthorized().json(msg),
-            AppError::Forbidden(ref msg) => HttpResponse::Forbidden().json(msg),
-            AppError::NotFound(ref msg) => HttpResponse::NotFound().json(msg),
-            AppError::UnprocessableEntity(ref msg) => HttpResponse::UnprocessableEntity().json(msg),
-            AppError::InternalServerError => {
-                HttpResponse::InternalServerError().json("Internal Server Error")
-            }
+#[derive(Debug, Serialize)]
+struct AppErrorBody {
+    pub error: String,
+}
+
+impl AppError {
+    pub fn new(status: StatusCode, message: impl Into<String>) -> Self {
+        AppError {
+            status,
+            message: Some(message.into()),
+            cause: None,
         }
     }
-    fn status_code(&self) -> StatusCode {
-        match *self {
-            AppError::Unauthorized(_) => StatusCode::UNAUTHORIZED,
-            AppError::Forbidden(_) => StatusCode::FORBIDDEN,
-            AppError::NotFound(_) => StatusCode::NOT_FOUND,
-            AppError::UnprocessableEntity(_) => StatusCode::UNPROCESSABLE_ENTITY,
-            AppError::InternalServerError => StatusCode::INTERNAL_SERVER_ERROR,
+
+    pub fn message(mut self, message: &str) -> Self {
+        self.message = Some(message.to_string());
+        self
+    }
+
+    pub fn cause<E: std::error::Error + 'static>(mut self, cause: E) -> Self {
+        self.cause = Some(Box::new(cause));
+        self
+    }
+
+    pub fn internal_error(message: impl Into<String>) -> Self {
+        Self::new(StatusCode::INTERNAL_SERVER_ERROR, message)
+    }
+
+    pub fn bad_request(message: impl Into<String>) -> Self {
+        Self::new(StatusCode::BAD_REQUEST, message)
+    }
+
+    pub fn not_found(message: impl Into<String>) -> Self {
+        Self::new(StatusCode::NOT_FOUND, message)
+    }
+
+    pub fn unauthorized(message: impl Into<String>) -> Self {
+        Self::new(StatusCode::UNAUTHORIZED, message)
+    }
+}
+
+impl Display for AppError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match (&self.cause, &self.message) {
+            (Some(cause), Some(message)) => write!(f, "{}: {}", message, cause),
+            (Some(cause), None) => write!(f, "{}", cause),
+            (None, Some(message)) => write!(f, "{}", message),
+            (None, None) => write!(f, "{}", self.status.canonical_reason().unwrap()),
         }
     }
 }
 
-impl<T> From<PoolError<T>> for AppError 
-where
-    T: std::error::Error,
-{
-    fn from(_err: PoolError<T>) -> Self {
-        AppError::InternalServerError
+impl actix_web::ResponseError for AppError {
+    fn status_code(&self) -> actix_web::http::StatusCode {
+        self.status
+    }
+
+    fn error_response(&self) -> actix_web::HttpResponse {
+        HttpResponseBuilder::new(self.status_code()).json(AppErrorBody {
+            error: format!("{}", self),
+        })
+    }
+}
+
+// REMOVED: This is the first, simpler, and conflicting implementation
+// impl From<diesel::result::Error> for AppError {
+//     fn from(err: diesel::result::Error) -> Self {
+//         match err {
+//             diesel::result::Error::NotFound => Self::not_found("Resource not found"),
+//             _ => Self::new(StatusCode::INTERNAL_SERVER_ERROR, "Database error").cause(err),
+//         }
+//     }
+// }
+
+impl From<deadpool::managed::PoolError<diesel_async::pooled_connection::PoolError>> for AppError {
+    fn from(err: deadpool::managed::PoolError<diesel_async::pooled_connection::PoolError>) -> Self {
+        Self::new(StatusCode::INTERNAL_SERVER_ERROR, "Database pool error").cause(err)
     }
 }
 
 impl From<BcryptError> for AppError {
     fn from(_err: BcryptError) -> Self {
-        AppError::InternalServerError
+        AppError::internal_error("An error occurred")
     }
 }
 
 impl From<JwtError> for AppError {
     fn from(err: JwtError) -> Self {
         match err.kind() {
-            JwtErrorKind::InvalidToken => AppError::Unauthorized(json!({
-                "error": "Token is invalid"
-            })),
-            JwtErrorKind::InvalidIssuer => AppError::Unauthorized(json!({
-                "error": "Issuer is invalid",
-            })),
-            _ => AppError::Unauthorized(json!({
-                "error": "An issue was found with the token provided",
-            })),
+            JwtErrorKind::InvalidToken => AppError::unauthorized("Token is invalid"),
+            JwtErrorKind::InvalidIssuer => AppError::unauthorized("Issuer is invalid"),
+            _ => AppError::unauthorized("An issue was found with the token provided"),
         }
     }
 }
@@ -92,21 +117,24 @@ impl From<DieselError> for AppError {
             DieselError::DatabaseError(kind, info) => {
                 if let DatabaseErrorKind::UniqueViolation = kind {
                     let message = info.details().unwrap_or_else(|| info.message()).to_string();
-                    AppError::UnprocessableEntity(json!({ "error": message }))
+                    AppError {
+                        status: StatusCode::BAD_REQUEST,
+                        message: Some(message.into()),
+                        cause: None,
+                    }
                 } else {
-                    AppError::InternalServerError
+                    let full_error = DieselError::DatabaseError(kind, info);
+                    AppError::internal_error("Internal server error").cause(full_error)
                 }
             }
-            DieselError::NotFound => {
-                AppError::NotFound(json!({ "error": "requested record was not found" }))
-            }
-            _ => AppError::InternalServerError,
+            DieselError::NotFound => AppError::not_found("record not found"),
+            _ => AppError::internal_error("Internal server error").cause(err),
         }
     }
 }
 
 impl From<UuidError> for AppError {
     fn from(_err: UuidError) -> Self {
-        AppError::NotFound(json!({"error":"Uuid is invalid."}))
+        AppError::not_found("Uuid is invalid.")
     }
 }

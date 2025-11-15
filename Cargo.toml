@@ -61,6 +61,7 @@ actix-cors = { version = "0.7" }
 
 # Convert strings into any case
 convert_case = { version = "0.9" }
+config = "0.15.19"
 
 # A library to generate and parse UUIDs.
 [dependencies.uuid]
