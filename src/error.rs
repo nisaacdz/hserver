@@ -1,6 +1,6 @@
 use actix_web::{http::StatusCode, HttpResponse};
 use bcrypt::BcryptError;
-use diesel::r2d2::{Error as R2D2Error, PoolError};
+use deadpool::managed::PoolError;
 use diesel::result::{DatabaseErrorKind, Error as DieselError};
 use jsonwebtoken::errors::{Error as JwtError, ErrorKind as JwtErrorKind};
 use serde_json::json;
@@ -55,8 +55,11 @@ impl actix_web::error::ResponseError for AppError {
     }
 }
 
-impl From<PoolError> for AppError {
-    fn from(_err: PoolError) -> Self {
+impl<T> From<PoolError<T>> for AppError 
+where
+    T: std::error::Error,
+{
+    fn from(_err: PoolError<T>) -> Self {
         AppError::InternalServerError
     }
 }
@@ -80,12 +83,6 @@ impl From<JwtError> for AppError {
                 "error": "An issue was found with the token provided",
             })),
         }
-    }
-}
-
-impl From<R2D2Error> for AppError {
-    fn from(_err: R2D2Error) -> Self {
-        AppError::InternalServerError
     }
 }
 
