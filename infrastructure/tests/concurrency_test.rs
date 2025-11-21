@@ -13,13 +13,12 @@ mod tests {
         let app_config = {
             dotenvy::from_filename(".env.test").ok();
 
-            let config_builder = Config::builder()
+            let config = Config::builder()
                 .add_source(File::with_name("../config/default"))
-                .add_source(config::Environment::with_prefix("APP").separator("__"));
-
-            let config = config_builder
+                .add_source(config::Environment::with_prefix("APP").separator("__"))
                 .build()
                 .expect("Failed to build configuration");
+
             let app_config: AppConfig = config
                 .try_deserialize()
                 .expect("Failed to deserialize configuration");
@@ -27,7 +26,8 @@ mod tests {
             app_config
         };
 
-        let pool = db::init_pool(&app_config.database.url);
+        let pool =
+            db::init_pool(&app_config.database).expect("Failed to initialize pg connection pool");
 
         let mut conn = pool.get().await.unwrap();
 

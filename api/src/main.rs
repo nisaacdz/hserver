@@ -8,11 +8,9 @@ async fn main() -> std::io::Result<()> {
     let config = {
         dotenvy::dotenv().ok();
 
-        let config_builder = Config::builder()
-            .add_source(File::with_name("config/default"))
-            .add_source(config::Environment::with_prefix("APP").separator("__"));
-
-        let config = config_builder
+        let config = Config::builder()
+            .add_source(File::with_name("../config/default"))
+            .add_source(config::Environment::with_prefix("APP").separator("__"))
             .build()
             .expect("Failed to build configuration");
 
@@ -23,7 +21,7 @@ async fn main() -> std::io::Result<()> {
         app_config
     };
 
-    let pool = db::init_pool(&config.database.url);
+    let pool = db::init_pool(&config.database).expect("Failed to initialize pg connection pool");
 
     println!(
         "Starting server at {}:{}",
