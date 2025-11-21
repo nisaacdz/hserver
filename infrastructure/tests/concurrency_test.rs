@@ -14,7 +14,7 @@ mod tests {
             dotenvy::from_filename(".env.test").ok();
 
             let config_builder = Config::builder()
-                .add_source(File::with_name("config/default"))
+                .add_source(File::with_name("../config/default"))
                 .add_source(config::Environment::with_prefix("APP").separator("__"));
 
             let config = config_builder
