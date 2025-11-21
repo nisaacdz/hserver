@@ -3,6 +3,16 @@ name = "migration_runner"
 version = "0.1.0"
 edition = "2021"
 
+[lib]
+name = "migration_runner"
+path = "src/lib.rs"
+
 [dependencies]
-diesel = { version = "2", features = ["postgres"] }
-infrastructure = { path = "../infrastructure" }
+diesel = { version = "2.3", features = ["postgres_backend"] }
+diesel-async = { version = "0.7", features = ["postgres", "deadpool"], default-features = false }
+postgres-native-tls = "0.5"
+native-tls = "0.2"
+dotenvy = "0.15"
+tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
+deadpool = "0.12"
+futures = "0.3"

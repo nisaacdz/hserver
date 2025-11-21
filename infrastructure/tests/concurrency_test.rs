@@ -1,11 +1,10 @@
 #[cfg(test)]
 mod tests {
-    use diesel::prelude::*;
+    use diesel_async::pooled_connection::deadpool::Pool;
+    use diesel_async::pooled_connection::AsyncDieselConnectionManager;
     use diesel_async::{AsyncPgConnection, RunQueryDsl};
     use uuid::Uuid;
     use std::env;
-    use tokio_postgres_rustls::MakeRustlsConnect;
-    use rustls::ClientConfig;
 
     #[tokio::test]
     async fn test_double_booking_prevention() {
@@ -15,58 +14,19 @@ mod tests {
             .or_else(|_| env::var("DATABASE_URL"))
             .expect("DATABASE_URL must be set");
 
-        // Setup TLS
-        let mut root_store = rustls::RootCertStore::empty();
-        root_store.extend(
-            webpki_roots::TLS_SERVER_ROOTS
-                .iter()
-                .cloned()
-        );
-        let config = ClientConfig::builder()
-            .with_root_certificates(root_store)
-            .with_no_client_auth();
-        let tls = MakeRustlsConnect::new(config);
+        let manager = AsyncDieselConnectionManager::<AsyncPgConnection>::new(database_url);
+        let pool = Pool::builder(manager).build().unwrap();
 
-        // Connect manually using tokio-postgres
-        let (client, connection) = tokio_postgres::connect(&database_url, tls)
-            .await
-            .expect("Failed to connect to database");
-
-        // Spawn the connection task
-        tokio::spawn(async move {
-            if let Err(e) = connection.await {
-                eprintln!("connection error: {}", e);
-            }
-        });
-
-        // Convert to AsyncPgConnection
-        let mut conn = AsyncPgConnection::try_from(client).await.expect("Failed to convert client");
+        // NOTE: Run `diesel migration run` before running tests
+        // Migrations should be handled by diesel_cli, not programmatically
+        
+        let mut conn = pool.get().await.unwrap();
 
         // Clean up before test
-        // Note: Truncate might fail if tables don't exist, so we wrap in Result
-        let _ = diesel::sql_query("TRUNCATE bookings, rooms, users CASCADE")
-            .execute(&mut conn)
-            .await;
-
-        // Enable extension
-        diesel::sql_query("CREATE EXTENSION IF NOT EXISTS btree_gist;")
+        diesel::sql_query("TRUNCATE bookings, rooms, users CASCADE")
             .execute(&mut conn)
             .await
-            .unwrap();
-
-        // Run Migrations (Manually for test)
-        let up_sql = std::fs::read_to_string("../migrations/2025-11-21-013625-0000_create_core_tables/up.sql")
-            .expect("Failed to read migration file");
-
-        for statement in up_sql.split(';') {
-            if statement.trim().is_empty() {
-                continue;
-            }
-            // Ignore errors if objects already exist (simple idempotency)
-            let _ = diesel::sql_query(statement)
-                .execute(&mut conn)
-                .await;
-        }
+            .ok();
 
         // 3. Insert Data
         // Create a room

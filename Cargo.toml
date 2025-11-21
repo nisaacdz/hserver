@@ -1,8 +1,7 @@
 [workspace]
 members = [
-    "api",
     "domain",
     "infrastructure",
-    "migration_runner"
+    "api",
 ]
 resolver = "2"
