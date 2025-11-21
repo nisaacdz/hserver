@@ -10,4 +10,4 @@ serde_json = "1"
 config = "0.13"
 dotenvy = "0.15"
 infrastructure = { path = "../infrastructure" }
-core = { path = "../core" }
+domain = { path = "../domain" }

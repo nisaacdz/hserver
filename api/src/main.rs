@@ -1,6 +1,6 @@
 use actix_web::{web, App, HttpServer};
 use infrastructure::db;
-use core::AppConfig;
+use domain::AppConfig;
 use config::{Config, File};
 use std::env;
 
