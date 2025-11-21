@@ -1,0 +1,19 @@
+FROM rust:1.74-slim
+
+WORKDIR /app
+
+# Install dependencies
+RUN apt-get update && \
+  apt-get install -y libpq-dev pkg-config curl unzip build-essential
+
+# Install cargo-watch
+RUN cargo install cargo-watch
+
+# Install diesel_cli
+RUN cargo install diesel_cli --no-default-features --features "postgres"
+
+COPY . .
+
+EXPOSE 8080
+
+CMD ["cargo", "watch", "--exec", "run"]

@@ -1,69 +1,8 @@
-[package]
-name = "conduit"
-version = "0.1.0"
-edition = "2021"
-authors = ["Shun Namiki a.k.a Nash <snamiki1212@gmail.com>"]
-license = "MIT"
-repository = "https://github.com/snamiki1212/realworld-rust-actix-web"
-readme = "README.md"
-description = "Realworld Application with Rust / actix-web / diesel."
-
-[dependencies]
-
-# Actix Web is a powerful, pragmatic, and extremely fast web framework for Rust
-actix-web = { version = "4.11" }
-
-# Async extension for Diesel ORM and Query Builder for PostgreSQL, SQLite, and MySQL
-diesel = { version = "2.2", features = [
-  "postgres",
-  "chrono",
-  "uuid",
-  "serde_json",
-] }
-diesel-async = { version = "0.7", features = ["postgres", "deadpool"] }
-deadpool = { version = "0.12" }
-
-# Create and decode JWTs in a strongly typed way.
-jsonwebtoken = { version = "10.2", features = ["rust_crypto"] }
-
-# A generic serialization/deserialization framework
-serde = { version = "1.0", features = ["derive"] }
-
-# A JSON serialization file format
-serde_json = { version = "1.0" }
-
-# A well-maintained fork of the dotenv crate
-dotenvy = { version = "0.15" }
-
-# Date and time library for Rust
-chrono = { version = "0.4", features = ["serde"] }
-
-# Easily hash and verify passwords using bcrypt
-bcrypt = { version = "0.17" }
-
-# A lightweight logging facade for Rust
-log = { version = "0.4" }
-
-# A logging implementation for `log` which is configured via an environment variable.
-env_logger = { version = "0.11" }
-
-# Flexible concrete Error type built on std::error::Error
-anyhow = { version = "1.0" }
-
-# derive(Error)
-thiserror = { version = "2.0" }
-
-# An implementation of futures and streams featuring zero allocations, composability, and iterator-like interfaces
-futures = { version = "0.3" }
-
-# Cross-Origin Resource Sharing (CORS) controls for Actix Web
-actix-cors = { version = "0.7" }
-
-# Convert strings into any case
-convert_case = { version = "0.9" }
-config = "0.15.19"
-
-# A library to generate and parse UUIDs.
-[dependencies.uuid]
-version = "1.18"
-features = ["serde", "v4"]
+[workspace]
+members = [
+    "api",
+    "core",
+    "infrastructure",
+    "migration_runner"
+]
+resolver = "2"

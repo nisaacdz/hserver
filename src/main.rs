@@ -6,13 +6,20 @@ mod error;
 mod schema;
 mod utils;
 
+mod config;
+
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
     println!("start hserver...");
     std::env::set_var("RUST_LOG", "actix_web=info");
     env_logger::init();
 
-    let pool = utils::db::establish_connection();
+    let settings = config::Settings::new().expect("Failed to load configuration");
+
+    let pool = utils::db::establish_connection(&settings.database.url);
+
+    let bind_address = format!("{}:{}", settings.server.host, settings.server.port);
+    println!("Starting server at: {}", bind_address);
 
     HttpServer::new(move || {
         App::new()
@@ -21,7 +28,7 @@ async fn main() -> std::io::Result<()> {
             .wrap(app::drivers::middlewares::cors::cors())
             .configure(app::drivers::routes::api)
     })
-    .bind(constants::BIND)?
+    .bind(bind_address)?
     .run()
     .await
 }

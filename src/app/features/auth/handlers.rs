@@ -26,12 +26,7 @@ pub async fn login(
     };
 
     // Verify password
-    let password_hash = user
-        .password
-        .as_ref()
-        .ok_or_else(|| AppError::unauthorized("Invalid credentials"))?;
-
-    let is_valid = hasher::verify(&req.password, password_hash)
+    let is_valid = hasher::verify(&req.password, &user.password_hash)
         .map_err(|_| AppError::unauthorized("Invalid credentials"))?;
 
     if !is_valid {
@@ -40,7 +35,7 @@ pub async fn login(
 
     // Generate JWT token
     let now = chrono::Utc::now().timestamp();
-    let token = token::generate(user.id, now)?;
+    let token = token::generate(user.user_id, now)?;
 
     Ok(HttpResponse::Ok().json(LoginResponse { token }))
 }

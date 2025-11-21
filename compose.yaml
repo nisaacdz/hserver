@@ -1,10 +1,13 @@
 services:
   app:
     container_name: app
-    build: .
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
     command: 'bash -c "diesel setup && cargo watch --exec run"'
     volumes:
       - .:/app
+      - /app/target
     depends_on:
       db:
         condition: service_healthy
@@ -12,16 +15,24 @@ services:
       - "8080:8080"
     environment:
       DATABASE_URL: postgres://postgres:postgres@db:5432/realworld-rust-actix-web
+      APP_SERVER__HOST: "0.0.0.0"
+      APP_SERVER__PORT: 8080
   db:
     container_name: db
     image: "postgres:14.0-alpine"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -d $${POSTGRES_DB} -U $${POSTGRES_USER}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
     ports:
       - "5432:5432"
     environment:
       POSTGRES_DB: realworld-rust-actix-web
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
+    volumes:
+      - db_data:/var/lib/postgresql/data
+
 volumes:
-  .:
+  db_data:

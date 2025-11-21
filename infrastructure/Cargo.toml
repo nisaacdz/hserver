@@ -1,0 +1,16 @@
+[package]
+name = "infrastructure"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+core = { path = "../core" }
+diesel = { version = "2.1", features = ["postgres", "uuid", "chrono", "numeric", "r2d2"] }
+diesel-async = { version = "0.4", features = ["postgres", "deadpool"] }
+deadpool = "0.10"
+tokio = { version = "1.0", features = ["full"] }
+dotenvy = "0.15"
+uuid = { version = "1.0", features = ["serde", "v4"] }
+chrono = { version = "0.4", features = ["serde"] }
+serde = { version = "1.0", features = ["derive"] }
+async-trait = "0.1"

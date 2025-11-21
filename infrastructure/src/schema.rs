@@ -15,37 +15,43 @@ pub mod sql_types {
 }
 
 diesel::table! {
-    booking_services (booking_id, service_id) {
-        booking_id -> Uuid,
-        service_id -> Uuid,
-        quantity -> Int4,
-        created_at -> Timestamptz,
-    }
-}
-
-diesel::table! {
     use diesel::sql_types::*;
     use super::sql_types::BookingStatus;
 
-    bookings (booking_id) {
-        booking_id -> Uuid,
-        guest_id -> Uuid,
+    bookings (id) {
+        id -> Uuid,
+        code -> Text,
+        hotel_id -> Uuid,
         room_id -> Uuid,
-        code -> Varchar,
-        checkin -> Timestamp,
-        checkout -> Timestamp,
+        guest_id -> Uuid,
+        booking_period -> Tsrange,
+        status -> BookingStatus,
         total_price -> Numeric,
-        booking_status -> BookingStatus,
         created_at -> Timestamptz,
         updated_at -> Timestamptz,
     }
 }
 
 diesel::table! {
-    hotels (hotel_id) {
+    daily_rates (id) {
+        id -> Uuid,
         hotel_id -> Uuid,
-        name -> Varchar,
-        address -> Nullable<Varchar>,
+        room_type_id -> Uuid,
+        rate_plan_id -> Uuid,
+        date -> Date,
+        price -> Numeric,
+        currency -> Nullable<Bpchar>,
+        created_at -> Timestamptz,
+        updated_at -> Timestamptz,
+    }
+}
+
+diesel::table! {
+    hotels (id) {
+        id -> Uuid,
+        name -> Text,
+        address -> Nullable<Text>,
+        timezone -> Text,
         created_at -> Timestamptz,
         updated_at -> Timestamptz,
     }
@@ -55,48 +61,42 @@ diesel::table! {
     use diesel::sql_types::*;
     use super::sql_types::PaymentStatus;
 
-    payments (payment_id) {
-        payment_id -> Uuid,
+    payments (id) {
+        id -> Uuid,
         booking_id -> Uuid,
         amount -> Numeric,
-        payment_status -> PaymentStatus,
-        provider_txn_id -> Nullable<Varchar>,
+        status -> PaymentStatus,
+        provider_txn_id -> Nullable<Text>,
         created_at -> Timestamptz,
         updated_at -> Timestamptz,
     }
 }
 
 diesel::table! {
-    permissions (permission_id) {
-        permission_id -> Uuid,
-        permission_name -> Varchar,
-        created_at -> Timestamptz,
-        updated_at -> Timestamptz,
-    }
-}
-
-diesel::table! {
-    role_permissions (role_id, permission_id) {
-        role_id -> Uuid,
-        permission_id -> Uuid,
-        created_at -> Timestamptz,
-    }
-}
-
-diesel::table! {
-    roles (role_id) {
-        role_id -> Uuid,
-        role_name -> Varchar,
-        created_at -> Timestamptz,
-        updated_at -> Timestamptz,
-    }
-}
-
-diesel::table! {
-    room_types (room_type_id) {
-        room_type_id -> Uuid,
+    rate_plans (id) {
+        id -> Uuid,
         hotel_id -> Uuid,
-        name -> Varchar,
+        name -> Text,
+        description -> Nullable<Text>,
+        created_at -> Timestamptz,
+        updated_at -> Timestamptz,
+    }
+}
+
+diesel::table! {
+    roles (id) {
+        id -> Uuid,
+        name -> Text,
+        created_at -> Timestamptz,
+        updated_at -> Timestamptz,
+    }
+}
+
+diesel::table! {
+    room_types (id) {
+        id -> Uuid,
+        hotel_id -> Uuid,
+        name -> Text,
         description -> Nullable<Text>,
         base_price -> Numeric,
         max_occupancy -> Int4,
@@ -109,11 +109,11 @@ diesel::table! {
     use diesel::sql_types::*;
     use super::sql_types::OperationalStatus;
 
-    rooms (room_id) {
-        room_id -> Uuid,
+    rooms (id) {
+        id -> Uuid,
         room_type_id -> Uuid,
         hotel_id -> Uuid,
-        room_number -> Varchar,
+        room_number -> Text,
         operational_status -> OperationalStatus,
         created_at -> Timestamptz,
         updated_at -> Timestamptz,
@@ -121,50 +121,39 @@ diesel::table! {
 }
 
 diesel::table! {
-    services (service_id) {
-        service_id -> Uuid,
-        name -> Varchar,
-        price -> Numeric,
-        created_at -> Timestamptz,
-        updated_at -> Timestamptz,
-    }
-}
-
-diesel::table! {
-    users (user_id) {
-        user_id -> Uuid,
-        email -> Varchar,
-        password_hash -> Varchar,
-        full_name -> Varchar,
-        phone -> Nullable<Varchar>,
+    users (id) {
+        id -> Uuid,
+        email -> Nullable<Text>,
+        phone -> Nullable<Text>,
+        full_name -> Nullable<Text>,
+        password_hash -> Nullable<Text>,
         role_id -> Uuid,
         created_at -> Timestamptz,
         updated_at -> Timestamptz,
     }
 }
 
-diesel::joinable!(booking_services -> bookings (booking_id));
-diesel::joinable!(booking_services -> services (service_id));
+diesel::joinable!(bookings -> hotels (hotel_id));
 diesel::joinable!(bookings -> rooms (room_id));
 diesel::joinable!(bookings -> users (guest_id));
+diesel::joinable!(daily_rates -> hotels (hotel_id));
+diesel::joinable!(daily_rates -> rate_plans (rate_plan_id));
+diesel::joinable!(daily_rates -> room_types (room_type_id));
 diesel::joinable!(payments -> bookings (booking_id));
-diesel::joinable!(role_permissions -> permissions (permission_id));
-diesel::joinable!(role_permissions -> roles (role_id));
+diesel::joinable!(rate_plans -> hotels (hotel_id));
 diesel::joinable!(room_types -> hotels (hotel_id));
 diesel::joinable!(rooms -> hotels (hotel_id));
 diesel::joinable!(rooms -> room_types (room_type_id));
 diesel::joinable!(users -> roles (role_id));
 
 diesel::allow_tables_to_appear_in_same_query!(
-    booking_services,
     bookings,
+    daily_rates,
     hotels,
     payments,
-    permissions,
-    role_permissions,
+    rate_plans,
     roles,
     room_types,
     rooms,
-    services,
     users,
 );

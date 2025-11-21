@@ -1,18 +1,29 @@
-FROM rust:1.74-slim
+# Builder stage
+FROM rust:1.74-slim as builder
 
 WORKDIR /app
 
+# Install dependencies for building (including libpq for diesel)
+RUN apt-get update && apt-get install -y libpq-dev pkg-config
+
 COPY . .
 
-# Upgrade the system and install dependencies for PostgreSQL
-RUN apt-get update && \
-  apt-get upgrade -y -o DPkg::Options::=--force-confold && \
-  apt-get install -y -o DPkg::Options::=--force-confold \
-  curl unzip build-essential pkg-config libssl-dev \
-  postgresql-client libpq-dev
+# Build the release binary
+RUN cargo build --release
 
-# Install cargo-watch
-RUN cargo install cargo-watch
+# Runtime stage
+FROM debian:bookworm-slim
 
-# Install diesel_cli for PostgreSQL
-RUN cargo install diesel_cli --no-default-features --features "postgres"
+WORKDIR /app
+
+# Install runtime dependencies
+RUN apt-get update && apt-get install -y libpq-5 ca-certificates && rm -rf /var/lib/apt/lists/*
+
+# Copy the binary from the builder stage
+COPY --from=builder /app/target/release/conduit /app/conduit
+
+# Expose the port
+EXPOSE 8080
+
+# Run the binary
+CMD ["./conduit"]
