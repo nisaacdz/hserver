@@ -13,13 +13,11 @@ mod tests {
         let app_config = {
             dotenvy::from_filename(".env.test").ok();
 
-            let config = Config::builder()
+            let app_config: AppConfig = Config::builder()
                 .add_source(File::with_name("../config/default"))
                 .add_source(config::Environment::with_prefix("APP").separator("__"))
                 .build()
-                .expect("Failed to build configuration");
-
-            let app_config: AppConfig = config
+                .expect("Failed to build configuration")
                 .try_deserialize()
                 .expect("Failed to deserialize configuration");
 

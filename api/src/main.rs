@@ -8,17 +8,15 @@ async fn main() -> std::io::Result<()> {
     let config = {
         dotenvy::dotenv().ok();
 
-        let config = Config::builder()
+        let config: AppConfig = Config::builder()
             .add_source(File::with_name("../config/default"))
             .add_source(config::Environment::with_prefix("APP").separator("__"))
             .build()
-            .expect("Failed to build configuration");
-
-        let app_config: AppConfig = config
+            .expect("Failed to build configuration")
             .try_deserialize()
             .expect("Failed to deserialize configuration");
 
-        app_config
+        config
     };
 
     let pool = db::init_pool(&config.database).expect("Failed to initialize pg connection pool");
