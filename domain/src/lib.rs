@@ -9,7 +9,7 @@ pub struct ServerConfig {
 #[derive(Debug, Deserialize, Clone)]
 pub struct DatabaseConfig {
     pub url: String,
-    pub max_connections: u32,
+    pub max_connections: usize,
 }
 
 #[derive(Debug, Deserialize, Clone)]
