@@ -15,6 +15,7 @@ futures = "0.3"
 uuid = { version = "1.0", features = ["v4"] }
 chrono = "0.4"
 domain = { path = "../domain" }
+config = "0.13"
 
 [dev-dependencies]
 tokio = { version = "1", features = ["full"] }

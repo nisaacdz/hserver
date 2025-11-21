@@ -1,25 +1,34 @@
 #[cfg(test)]
 mod tests {
-    use diesel_async::pooled_connection::deadpool::Pool;
-    use diesel_async::pooled_connection::AsyncDieselConnectionManager;
-    use diesel_async::{AsyncPgConnection, RunQueryDsl};
+    use diesel_async::RunQueryDsl;
+
+    use config::{Config, File};
     use uuid::Uuid;
-    use std::env;
+
+    use domain::AppConfig;
+    use infrastructure::db;
 
     #[tokio::test]
     async fn test_double_booking_prevention() {
-        dotenvy::from_filename(".env").ok();
-        
-        let database_url = env::var("APP__DATABASE__URL")
-            .or_else(|_| env::var("DATABASE_URL"))
-            .expect("DATABASE_URL must be set");
+        let app_config = {
+            dotenvy::from_filename(".env.test").ok();
 
-        let manager = AsyncDieselConnectionManager::<AsyncPgConnection>::new(database_url);
-        let pool = Pool::builder(manager).build().unwrap();
+            let config_builder = Config::builder()
+                .add_source(File::with_name("config/default"))
+                .add_source(config::Environment::with_prefix("APP").separator("__"));
 
-        // NOTE: Run `diesel migration run` before running tests
-        // Migrations should be handled by diesel_cli, not programmatically
-        
+            let config = config_builder
+                .build()
+                .expect("Failed to build configuration");
+            let app_config: AppConfig = config
+                .try_deserialize()
+                .expect("Failed to deserialize configuration");
+
+            app_config
+        };
+
+        let pool = db::init_pool(&app_config.database.url);
+
         let mut conn = pool.get().await.unwrap();
 
         // Clean up before test
