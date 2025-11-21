@@ -10,7 +10,7 @@ A core principle of this API is that each endpoint is self-contained and defines
 
 Successful responses for each endpoint are tailored to the specific resource being returned. The structure should be intuitive and directly related to the data being requested.
 
-#### Example: `/api/auth/login`
+#### Example: `/api/v1/auth/login`
 
 A successful login returns a `user` object containing essential user information.
 
@@ -23,13 +23,14 @@ A successful login returns a `user` object containing essential user information
 }
 ```
 
-#### Example: `/api/rooms`
+#### Example: `/api/v1/rooms`
 
 A request to the rooms index endpoint returns a paginated list of rooms, including metadata about the collection.
 
 ```json
 {
   "rooms": [],
+  "available": 10,
   "total": 0,
   "page": 1,
   "limit": 20
@@ -40,7 +41,7 @@ A request to the rooms index endpoint returns a paginated list of rooms, includi
 
 Similar to success responses, error handling is defined on a per-endpoint basis. This allows for more descriptive and context-specific error messages. The HTTP status code should accurately reflect the nature of the error (e.g., `400` for bad requests, `401` for unauthorized, `422` for unprocessable entity).
 
-#### Example: `/api/auth/signup`
+#### Example: `/api/v1/auth/signup`
 
 For validation errors during user registration, the response body includes an `errors` object. Each key in this object corresponds to a field with validation issues, and the value is an array of error messages for that field.
 
@@ -53,7 +54,7 @@ For validation errors during user registration, the response body includes an `e
 }
 ```
 
-#### Example: `/api/auth/login`
+#### Example: `/api/v1/auth/login`
 
 In the case of invalid login credentials, a single, clear error message is returned.
 
@@ -72,3 +73,6 @@ In the case of invalid login credentials, a single, clear error message is retur
 ```rust
 // TODO
 ```
+
+
+Note: The json examples in this document are just templates and do not reflect the actual data that will be returned from the api calls.

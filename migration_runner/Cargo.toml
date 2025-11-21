@@ -4,8 +4,5 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+diesel = { version = "2", features = ["postgres"] }
 infrastructure = { path = "../infrastructure" }
-diesel = { version = "2.1", features = ["postgres", "uuid", "chrono"] }
-diesel_migrations = "2.1"
-tokio = { version = "1.0", features = ["full"] }
-dotenvy = "0.15"

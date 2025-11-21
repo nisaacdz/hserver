@@ -8,8 +8,8 @@ RUN apt-get update && apt-get install -y libpq-dev pkg-config
 
 COPY . .
 
-# Build the release binary
-RUN cargo build --release
+# Build the release binary for the api package
+RUN cargo build --release -p api
 
 # Runtime stage
 FROM debian:bookworm-slim
@@ -20,10 +20,10 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y libpq-5 ca-certificates && rm -rf /var/lib/apt/lists/*
 
 # Copy the binary from the builder stage
-COPY --from=builder /app/target/release/conduit /app/conduit
+COPY --from=builder /app/target/release/api /app/hserver
 
 # Expose the port
 EXPOSE 8080
 
 # Run the binary
-CMD ["./conduit"]
+CMD ["./hserver"]

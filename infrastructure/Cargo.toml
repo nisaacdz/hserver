@@ -4,13 +4,10 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-core = { path = "../core" }
-diesel = { version = "2.1", features = ["postgres", "uuid", "chrono", "numeric", "r2d2"] }
-diesel-async = { version = "0.4", features = ["postgres", "deadpool"] }
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
+diesel = { version = "2", features = ["postgres", "chrono", "uuid", "numeric"] }
+diesel-async = { version = "0.5", features = ["postgres", "deadpool"] }
 deadpool = "0.10"
-tokio = { version = "1.0", features = ["full"] }
-dotenvy = "0.15"
-uuid = { version = "1.0", features = ["serde", "v4"] }
-chrono = { version = "0.4", features = ["serde"] }
-serde = { version = "1.0", features = ["derive"] }
-async-trait = "0.1"
+uuid = "1.0"
+chrono = "0.4"
+core = { path = "../core" }
