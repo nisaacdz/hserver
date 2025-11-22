@@ -4,10 +4,10 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-actix-web = "4"
-serde = { version = "1", features = ["derive"] }
-serde_json = "1"
-config = "0.13"
-dotenvy = "0.15"
-infrastructure = { path = "../infrastructure" }
-domain = { path = "../domain" }
+actix-web = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+config = { workspace = true }
+dotenvy = { workspace = true }
+infrastructure = { workspace = true }
+domain = { workspace = true }

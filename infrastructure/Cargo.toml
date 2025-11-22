@@ -4,19 +4,23 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
-diesel = { version = "2.3", features = ["postgres_backend", "chrono", "uuid", "numeric"] }
-diesel-async = { version = "0.7", features = ["postgres", "deadpool"] }
+tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
+diesel = { workspace = true, features = ["postgres_backend", "chrono", "uuid", "numeric"] }
+diesel-async = { workspace = true, features = ["postgres", "deadpool"] }
 deadpool = "0.12"
 tokio-postgres-rustls = "0.13"
-rustls = "0.23"
+tokio-postgres = "0.7"
+rustls = { workspace = true }
 rustls-platform-verifier = "0.6.2"
+webpki-roots = "1.0.4"
 futures = "0.3"
-uuid = { version = "1.0", features = ["v4"] }
-chrono = "0.4"
-domain = { path = "../domain" }
-config = "0.15.19"
+uuid = { workspace = true, features = ["v4"] }
+chrono = { workspace = true }
+domain = { workspace = true }
+config = { workspace = true }
 
 [dev-dependencies]
-tokio = { version = "1", features = ["full"] }
-dotenvy = "0.15"
+tokio = { workspace = true, features = ["full"] }
+dotenvy = { workspace = true }
+
+
