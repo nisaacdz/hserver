@@ -36,46 +36,6 @@ resolver = "2"
 
 -----
 
-### **2. Infrastructure Setup (The Hard Parts)**
-
-This is where `diesel_async` and `deadpool` meet. This setup is often non-trivial; copy this exactly.
-
-**`infrastructure/Cargo.toml`**:
-
-```toml
-[dependencies]
-tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
-diesel = { version = "2", features = ["postgres", "chrono", "uuid", "numeric"] }
-diesel-async = { version = "0.5", features = ["postgres", "deadpool"] }
-deadpool = "0.10" # Manages the async pool
-uuid = "1.0"
-chrono = "0.4"
-# Internal dep
-core = { path = "../core" }
-```
-
-**`infrastructure/src/db.rs`** (The Connection Pool):
-
-```rust
-use diesel_async::pooled_connection::deadpool::Pool;
-use diesel_async::pooled_connection::AsyncDieselConnectionManager;
-use diesel_async::AsyncPgConnection;
-
-pub type DbPool = Pool<AsyncPgConnection>;
-
-pub fn init_pool(database_url: &str) -> DbPool {
-    let config = AsyncDieselConnectionManager::<AsyncPgConnection>::new(database_url);
-    Pool::builder(config)
-        .max_size(20) // Tuning: higher for high traffic
-        .build()
-        .expect("Failed to create DB pool")
-}
-```
-
-**`infrastructure/src/repo.rs`** (Async Query Example):
-*Critical Note:* You must import `RunQueryDsl` from `diesel_async` to get `.await` on queries.
-
-```rust
 use diesel::prelude::*; // Standard traits
 use diesel_async::RunQueryDsl; // <--- THE MAGIC IMPORT
 use crate::db::DbPool;
@@ -165,7 +125,9 @@ This order minimizes risk by building the foundational data integrity first.
     1.  Set up the Workspace and Docker Compose (Postgres 15+).
     2.  Implement `diesel_async` + `deadpool` boilerplate.
     3.  Write SQL migrations for `users`, `rooms`, and `bookings`.
-    4.  **Critical:** Write a unit test using `testcontainers` that attempts to insert two overlapping bookings. *Ensure the database rejects the second one.*
+    4.  **Critical:** Write a unit test that attempts to insert two overlapping bookings. *Ensure the database rejects the second one.*
+        *   *Note:* Currently using a dedicated test database (configured via `.env.test`) for verification.
+        *   *Future Goal:* Migrate to `testcontainers` for isolated, ephemeral database testing.
 
 #### **Sprint 2: Inventory & Pricing (Internal First)**
 
