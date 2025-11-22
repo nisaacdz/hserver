@@ -10,12 +10,12 @@ diesel-async = { version = "0.7", features = ["postgres", "deadpool"] }
 deadpool = "0.12"
 tokio-postgres-rustls = "0.13"
 rustls = "0.23"
-rustls-platform-verifier = "0.4"
+rustls-platform-verifier = "0.6.2"
 futures = "0.3"
 uuid = { version = "1.0", features = ["v4"] }
 chrono = "0.4"
 domain = { path = "../domain" }
-config = "0.13"
+config = "0.15.19"
 
 [dev-dependencies]
 tokio = { version = "1", features = ["full"] }
