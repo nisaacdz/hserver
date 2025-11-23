@@ -9,7 +9,7 @@ async fn main() -> std::io::Result<()> {
         dotenvy::dotenv().ok();
 
         let config: AppConfig = Config::builder()
-            .add_source(File::with_name("../config/default"))
+            .add_source(File::with_name("./config/default"))
             .add_source(config::Environment::with_prefix("APP").separator("__"))
             .build()
             .expect("Failed to build configuration")
