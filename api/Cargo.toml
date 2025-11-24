@@ -9,5 +9,5 @@ serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 config = { workspace = true }
 dotenvy = { workspace = true }
-infrastructure = { workspace = true }
 domain = { workspace = true }
+infrastructure = { workspace = true }
