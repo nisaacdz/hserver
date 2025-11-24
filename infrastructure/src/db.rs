@@ -72,3 +72,49 @@ pub fn init_pool(db_config: &DatabaseConfig) -> Result<DbPool, BuildError> {
         .max_size(db_config.max_connections)
         .build()
 }
+
+/// Initialize a single database connection
+pub async fn init_conn(db_config: &DatabaseConfig) -> Result<AsyncPgConnection, ConnectionError> {
+    let mut root_store = RootCertStore::empty();
+    root_store.extend(webpki_roots::TLS_SERVER_ROOTS.iter().cloned());
+    let rustls_config = ClientConfig::builder()
+        .with_root_certificates(root_store)
+        .with_no_client_auth();
+    let tls = MakeRustlsConnect::new(rustls_config);
+
+    let mut config = tokio_postgres::Config::from_str(&db_config.url)
+        .map_err(|e| ConnectionError::BadConnection(e.to_string()))?;
+    // Relax channel binding requirement to avoid authentication errors with some providers (e.g. Neon)
+    config.channel_binding(tokio_postgres::config::ChannelBinding::Prefer);
+
+    let client = match config.get_ssl_mode() {
+        SslMode::Require => {
+            let (client, connection) = config
+                .connect(tls)
+                .await
+                .map_err(|e| ConnectionError::BadConnection(e.to_string()))?;
+            tokio::spawn(async move {
+                if let Err(e) = connection.await {
+                    eprintln!("connection error: {}", e);
+                }
+            });
+            client
+        }
+        _ => {
+            let (client, connection) = config
+                .connect(NoTls)
+                .await
+                .map_err(|e| ConnectionError::BadConnection(e.to_string()))?;
+            tokio::spawn(async move {
+                if let Err(e) = connection.await {
+                    eprintln!("connection error: {}", e);
+                }
+            });
+            client
+        }
+    };
+
+    AsyncPgConnection::try_from(client)
+        .await
+        .map_err(|e| ConnectionError::BadConnection(e.to_string()))
+}
