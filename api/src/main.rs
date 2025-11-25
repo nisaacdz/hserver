@@ -1,4 +1,5 @@
 use actix_web::{web, App, HttpServer};
+use api::v1::configure_v1_routes;
 use config::{Config, File};
 use domain::AppConfig;
 use infrastructure::db;
@@ -32,7 +33,12 @@ async fn main() -> std::io::Result<()> {
     HttpServer::new(move || {
         let web_pool = web_pool.clone();
         let web_config = web_config.clone();
-        App::new().app_data(web_pool).app_data(web_config)
+        App::new()
+            .app_data(web_pool)
+            .app_data(web_config)
+            .configure(|cfg| {
+                cfg.service(web::scope("/api").configure(configure_v1_routes));
+            })
     })
     .bind((config.server.host.as_str(), config.server.port))?
     .run()
