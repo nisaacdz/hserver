@@ -16,3 +16,4 @@ base64 = "0.22.1"
 chrono = { workspace = true }
 futures-util = { workspace = true }
 uuid = { workspace = true }
+validators = { version = "0.25", features = ["uuid"] }

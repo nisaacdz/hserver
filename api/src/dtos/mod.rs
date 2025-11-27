@@ -11,5 +11,3 @@ pub struct FindRoom {
     pub class_id: String,
     pub period: (i32, i32),
 }
-
-// Add chrono, uuid, crypto or

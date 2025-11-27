@@ -177,7 +177,7 @@ where
                             match origin_header {
                                 Some(o) if o == session.origin => {
                                     // 7. Success: Attach USER (not the whole session)
-                                    req.extensions_mut().insert(session.user);
+                                    req.extensions_mut().insert(Rc::new(session.user));
                                     return srv.call(req).await;
                                 }
                                 _ => return Err(ErrorUnauthorized("Invalid Origin")),
