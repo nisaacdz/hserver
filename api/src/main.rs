@@ -1,4 +1,4 @@
-use actix_web::{web, App, HttpServer};
+use actix_web::{App, HttpServer, web};
 use api::v1::configure_v1_routes;
 use config::{Config, File};
 use domain::AppConfig;

@@ -1,4 +1,4 @@
-use actix_web::{web, HttpResponse};
+use actix_web::{HttpResponse, web};
 use infrastructure::db::DbPool;
 
 use crate::{dtos::FindRoom, errors::LoginError};
