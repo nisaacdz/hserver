@@ -30,55 +30,50 @@ mod tests {
         let mut conn = pool.get().await.unwrap();
 
         // Clean up before test
-        diesel::sql_query("TRUNCATE bookings, rooms, users CASCADE")
+        diesel::sql_query("TRUNCATE bookings, blocks, rooms, room_classes, users CASCADE")
             .execute(&mut conn)
             .await
             .ok();
 
-        // 3. Insert Data
-        // Create a room
-        let room_id = Uuid::new_v4();
-        diesel::sql_query("INSERT INTO rooms (id, number, room_type, price_per_night) VALUES ($1, '101', 'Standard', 100.00)")
-            .bind::<diesel::sql_types::Uuid, _>(room_id)
-            .execute(&mut conn)
-            .await
-            .unwrap();
-
-        // Create a user
-        let user_id = Uuid::new_v4();
+        // 1. Create Room Class
+        let class_id = Uuid::new_v4();
         diesel::sql_query(
-            "INSERT INTO users (id, email, password_hash) VALUES ($1, 'test@test.com', 'hash')",
+            "INSERT INTO room_classes (id, name, base_price) VALUES ($1, 'Standard', 100.00)",
         )
-        .bind::<diesel::sql_types::Uuid, _>(user_id)
+        .bind::<diesel::sql_types::Uuid, _>(class_id)
         .execute(&mut conn)
         .await
         .unwrap();
 
-        // 4. Attempt Overlapping Bookings
+        // 2. Create Room
+        let room_id = Uuid::new_v4();
+        diesel::sql_query("INSERT INTO rooms (id, label, class_id) VALUES ($1, '101', $2)")
+            .bind::<diesel::sql_types::Uuid, _>(room_id)
+            .bind::<diesel::sql_types::Uuid, _>(class_id)
+            .execute(&mut conn)
+            .await
+            .unwrap();
 
-        // Booking 1: Jan 1 to Jan 5
+        // 3. Attempt Overlapping Blocks (Bookings)
+
+        // Block 1: Jan 1 to Jan 5
         let result1 = diesel::sql_query(
-            "INSERT INTO bookings (room_id, guest_id, stay_period) VALUES ($1, $2, '[2024-01-01 14:00:00, 2024-01-05 10:00:00)')"
+            "INSERT INTO blocks (room_id, interval) VALUES ($1, '[2024-01-01 14:00:00, 2024-01-05 10:00:00)')"
         )
         .bind::<diesel::sql_types::Uuid, _>(room_id)
-        .bind::<diesel::sql_types::Uuid, _>(user_id)
         .execute(&mut conn)
         .await;
 
-        assert!(result1.is_ok(), "First booking should succeed");
+        assert!(result1.is_ok(), "First block should succeed");
 
-        // Booking 2: Jan 4 to Jan 6 (Overlaps Jan 4-5)
+        // Block 2: Jan 4 to Jan 6 (Overlaps Jan 4-5)
         let result2 = diesel::sql_query(
-            "INSERT INTO bookings (room_id, guest_id, stay_period) VALUES ($1, $2, '[2024-01-04 14:00:00, 2024-01-06 10:00:00)')"
+            "INSERT INTO blocks (room_id, interval) VALUES ($1, '[2024-01-04 14:00:00, 2024-01-06 10:00:00)')"
         )
         .bind::<diesel::sql_types::Uuid, _>(room_id)
-        .bind::<diesel::sql_types::Uuid, _>(user_id)
         .execute(&mut conn)
         .await;
 
-        assert!(
-            result2.is_err(),
-            "Second booking should fail due to overlap"
-        );
+        assert!(result2.is_err(), "Second block should fail due to overlap");
     }
 }

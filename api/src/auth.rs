@@ -94,6 +94,10 @@ impl JwtContext {
             key: Key::from(config.secret.as_bytes()),
         }
     }
+
+    pub fn with_key(key: Key) -> Self {
+        Self { key }
+    }
 }
 
 pub struct AuthMiddleware;
@@ -222,6 +226,7 @@ mod tests {
     #[actix_web::test]
     async fn test_auth_middleware_flow() {
         let key = Key::generate();
+        let jwt_context = JwtContext::with_key(key.clone());
 
         // 1. Setup User & Token
         let user = SessionUser {
@@ -241,6 +246,7 @@ mod tests {
 
         // 3. Create Request
         let req = actix_web::test::TestRequest::default()
+            .app_data(jwt_context)
             .cookie(Cookie::build("auth-token", encrypted_value).finish())
             .insert_header(("Origin", "http://localhost")) // Header matches token
             .to_srv_request();
@@ -261,6 +267,8 @@ mod tests {
     #[actix_web::test]
     async fn test_fail_invalid_origin() {
         let key = Key::generate();
+        let jwt_context = JwtContext::with_key(key.clone());
+
         let user = SessionUser {
             id: Uuid::new_v4(),
             staff_id: Uuid::new_v4(),
@@ -277,6 +285,7 @@ mod tests {
 
         // Request coming from EVIL.COM
         let req = actix_web::test::TestRequest::default()
+            .app_data(jwt_context)
             .cookie(Cookie::build("auth-token", encrypted_value).finish())
             .insert_header(("Origin", "http://evil.com"))
             .to_srv_request();

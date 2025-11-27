@@ -18,6 +18,8 @@ uuid = { workspace = true, features = ["v4"] }
 chrono = { workspace = true }
 domain = { workspace = true }
 config = { workspace = true }
+bigdecimal = "0.4.9"
+diesel-derive-enum = { workspace = true, features = ["postgres"] }
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["full"] }
