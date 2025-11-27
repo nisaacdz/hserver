@@ -7,6 +7,7 @@ use actix_web::{
 use base64::{Engine as _, engine::general_purpose::STANDARD as BASE64};
 use bincode::{Decode, Encode, config};
 use chrono::Utc;
+use domain::JwtConfig;
 use futures_util::future::{Ready, ok};
 use futures_util::task::{Context, Poll};
 use std::future::Future;
@@ -83,15 +84,19 @@ pub fn create_session_token(user: SessionUser, origin: String) -> String {
 // 3. The Middleware
 // ==========================================
 
-pub struct AuthMiddleware {
+pub struct JwtContext {
     key: Key,
 }
 
-impl AuthMiddleware {
-    pub fn new(key: Key) -> Self {
-        Self { key }
+impl JwtContext {
+    pub fn new(config: &JwtConfig) -> Self {
+        Self {
+            key: Key::from(config.secret.as_bytes()),
+        }
     }
 }
+
+pub struct AuthMiddleware;
 
 // Middleware Factory
 impl<S, B> Transform<S, ServiceRequest> for AuthMiddleware
@@ -109,7 +114,6 @@ where
     fn new_transform(&self, service: S) -> Self::Future {
         ok(AuthMiddlewareService {
             service: Rc::new(service),
-            key: self.key.clone(),
         })
     }
 }
@@ -117,7 +121,6 @@ where
 // Middleware Logic
 pub struct AuthMiddlewareService<S> {
     service: Rc<S>,
-    key: Key,
 }
 
 impl<S, B> Service<ServiceRequest> for AuthMiddlewareService<S>
@@ -136,9 +139,12 @@ where
 
     fn call(&self, req: ServiceRequest) -> Self::Future {
         let srv = self.service.clone();
-        let key = self.key.clone();
 
         Box::pin(async move {
+            let jwt_context = req
+                .app_data::<JwtContext>()
+                .expect("JwtContext not in app data");
+
             // 1. Extract Cookie
             if let Some(cookie) = req.cookie("auth-token") {
                 // 2. Load into Jar for Decryption
@@ -146,7 +152,7 @@ where
                 jar.add_original(cookie.clone());
 
                 // 3. Verify Signature & Decrypt
-                if let Some(private_cookie) = jar.private(&key).get("auth-token") {
+                if let Some(private_cookie) = jar.private(&jwt_context.key).get("auth-token") {
                     let value_str = private_cookie.value();
 
                     // 4. Base64 Decode
@@ -240,7 +246,7 @@ mod tests {
             .to_srv_request();
 
         // 4. Run Middleware
-        let middleware = AuthMiddleware::new(key);
+        let middleware = AuthMiddleware;
         let srv = middleware
             .new_transform(actix_web::test::ok_service())
             .await
@@ -275,7 +281,7 @@ mod tests {
             .insert_header(("Origin", "http://evil.com"))
             .to_srv_request();
 
-        let middleware = AuthMiddleware::new(key);
+        let middleware = AuthMiddleware;
         let srv = middleware
             .new_transform(actix_web::test::ok_service())
             .await
