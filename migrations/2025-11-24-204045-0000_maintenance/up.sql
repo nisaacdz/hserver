@@ -13,6 +13,7 @@ CREATE TYPE "maintenance_kind" AS ENUM (
     'it_network',
     'painting',
     'appliances',
+    'out_of_service'
     'other'
 );
 
@@ -22,4 +23,5 @@ CREATE TABLE maintenance (
     block_id UUID PRIMARY KEY REFERENCES blocks(id) ON DELETE CASCADE,
     kind "maintenance_kind" NOT NULL,
     severity "maintenance_severity" NOT NULL,
+    assigner_id UUID REFERENCES staff(id)
 );
