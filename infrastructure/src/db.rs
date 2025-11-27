@@ -1,15 +1,15 @@
 use diesel::result::ConnectionError;
 use diesel_async::{
-    pooled_connection::{
-        deadpool::{BuildError, Pool},
-        AsyncDieselConnectionManager, ManagerConfig,
-    },
     AsyncPgConnection,
+    pooled_connection::{
+        AsyncDieselConnectionManager, ManagerConfig,
+        deadpool::{BuildError, Pool},
+    },
 };
 use domain::DatabaseConfig;
 use rustls::{ClientConfig, RootCertStore};
 use std::str::FromStr;
-use tokio_postgres::{config::SslMode, NoTls};
+use tokio_postgres::{NoTls, config::SslMode};
 use tokio_postgres_rustls::MakeRustlsConnect;
 
 pub type DbPool = Pool<AsyncPgConnection>;
