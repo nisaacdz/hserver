@@ -19,8 +19,14 @@ pub struct ApplicationConfig {
 }
 
 #[derive(Debug, Deserialize, Clone)]
+pub struct JwtConfig {
+    pub secret: String,
+}
+
+#[derive(Debug, Deserialize, Clone)]
 pub struct AppConfig {
     pub server: ServerConfig,
     pub database: DatabaseConfig,
     pub application: ApplicationConfig,
+    pub jwt: JwtConfig,
 }
