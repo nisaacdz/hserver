@@ -1,8 +1,8 @@
-use diesel::prelude::*;
-use uuid::Uuid;
-use chrono::{DateTime, Utc};
 use bigdecimal::BigDecimal;
+use chrono::{DateTime, Utc};
+use diesel::prelude::*;
 use std::collections::Bound;
+use uuid::Uuid;
 
 use crate::schema::*;
 
