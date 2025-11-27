@@ -8,7 +8,7 @@ async fn main() {
         dotenvy::from_filename(".env.test").ok();
 
         let app_config: AppConfig = Config::builder()
-            .add_source(File::with_name("../config/default"))
+            .add_source(File::with_name("./config/default"))
             .add_source(Environment::with_prefix("APP").separator("__"))
             .build()
             .expect("Failed to build configuration")
