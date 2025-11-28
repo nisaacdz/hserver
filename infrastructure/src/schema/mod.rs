@@ -102,7 +102,6 @@ diesel::table! {
         id -> Uuid,
         email -> Text,
         password_hash -> Nullable<Text>,
-        role -> Text,
         created_at -> Timestamptz,
         updated_at -> Timestamptz,
     }

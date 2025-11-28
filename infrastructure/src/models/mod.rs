@@ -43,7 +43,6 @@ pub struct User {
     pub id: Uuid,
     pub email: String,
     pub password_hash: Option<String>,
-    pub role: String,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
@@ -54,7 +53,6 @@ pub struct NewUser<'a> {
     pub id: Option<Uuid>,
     pub email: &'a str,
     pub password_hash: Option<&'a str>,
-    pub role: &'a str,
 }
 
 #[derive(Queryable, Selectable, Identifiable, Associations, Debug, Clone, PartialEq)]

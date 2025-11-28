@@ -2,7 +2,6 @@
 mod tests {
     use bigdecimal::BigDecimal;
     use chrono::{TimeZone, Utc};
-    use diesel::prelude::*;
     use diesel_async::RunQueryDsl;
     use std::collections::Bound;
 
@@ -11,8 +10,8 @@ mod tests {
 
     use domain::AppConfig;
     use infrastructure::db;
-    use infrastructure::models::{NewBlock, NewRoom, NewRoomClass, NewUser};
-    use infrastructure::schema::{blocks, room_classes, rooms, users};
+    use infrastructure::models::{NewBlock, NewRoom, NewRoomClass};
+    use infrastructure::schema::{blocks, room_classes, rooms};
 
     #[tokio::test]
     async fn test_double_booking_prevention() {
