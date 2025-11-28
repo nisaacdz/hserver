@@ -1,5 +1,5 @@
 use actix_web::{App, HttpServer, web};
-use api::{auth::JwtContext, v1::configure_v1_routes};
+use api::{auth::AuthConfig, v1::configure_v1_routes};
 use config::{Config, File};
 use domain::AppConfig;
 use infrastructure::db;
@@ -24,7 +24,7 @@ async fn main() -> std::io::Result<()> {
     };
 
     let pool = db::init_pool(&config.database).expect("Failed to initialize pg connection pool");
-    let jwt = web::Data::new(JwtContext::new(&config.jwt));
+    let auth = web::Data::new(AuthConfig::new(&config.security));
 
     println!(
         "Starting server at {}:{}",
@@ -32,17 +32,17 @@ async fn main() -> std::io::Result<()> {
     );
 
     let web_pool = web::Data::new(pool.clone());
-    let web_jwt = web::Data::new(jwt.clone());
-    let web_config = web::Data::new(config.clone());
+    let web_auth_config = web::Data::new(auth.clone());
+    let web_app_config = web::Data::new(config.clone());
 
     HttpServer::new(move || {
         let web_pool = web_pool.clone();
-        let web_jwt = web_jwt.clone();
-        let web_config = web_config.clone();
+        let web_auth_config = web_auth_config.clone();
+        let web_app_config = web_app_config.clone();
         App::new()
             .app_data(web_pool)
-            .app_data(web_config)
-            .app_data(web_jwt)
+            .app_data(web_app_config)
+            .app_data(web_auth_config)
             .configure(|cfg| {
                 cfg.service(web::scope("/api").configure(configure_v1_routes));
             })

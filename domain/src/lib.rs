@@ -19,13 +19,9 @@ pub struct ApplicationConfig {
 }
 
 #[derive(Debug, Deserialize, Clone)]
-pub struct JwtConfig {
-    pub secret: String,
-}
-
-#[derive(Debug, Deserialize, Clone)]
 pub struct SecurityConfig {
     pub session_duration: u64,
+    pub key: String,
 }
 
 impl SecurityConfig {
@@ -40,5 +36,4 @@ pub struct AppConfig {
     pub database: DatabaseConfig,
     pub application: ApplicationConfig,
     pub security: SecurityConfig,
-    pub jwt: JwtConfig,
 }

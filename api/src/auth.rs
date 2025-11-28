@@ -7,7 +7,7 @@ use actix_web::{
 use base64::{Engine as _, engine::general_purpose::STANDARD as BASE64};
 use bincode::{Decode, Encode, config};
 use chrono::Utc;
-use domain::JwtConfig;
+use domain::SecurityConfig;
 use futures_util::future::{Ready, ok};
 use futures_util::task::{Context, Poll};
 use std::future::Future;
@@ -68,30 +68,30 @@ pub struct AuthSession {
 // ==========================================
 
 /// Helper to generate the cookie value during Login
-pub fn create_session_token(user: SessionUser, origin: String) -> String {
+pub fn create_unsigned_session_token(user: SessionUser, origin: String, config: &SecurityConfig) -> String {
     let session = AuthSession {
-        exp: Utc::now().timestamp() + 3600, // 1 hour expiry
+        exp: Utc::now().timestamp() + config.session_duration as i64,
         origin,
         user,
     };
 
     let config = config::standard();
     let encoded_bytes = bincode::encode_to_vec(session, config).unwrap();
-    unsafe { String::from_utf8_unchecked(encoded_bytes) }
+    BASE64.encode(&encoded_bytes)
 }
 
 // ==========================================
 // 3. The Middleware
 // ==========================================
 
-pub struct JwtContext {
+pub struct AuthConfig {
     key: Key,
 }
 
-impl JwtContext {
-    pub fn new(config: &JwtConfig) -> Self {
+impl AuthConfig {
+    pub fn new(config: &SecurityConfig) -> Self {
         Self {
-            key: Key::from(config.secret.as_bytes()),
+            key: Key::from(config.key.as_bytes()),
         }
     }
 
@@ -145,42 +145,31 @@ where
         let srv = self.service.clone();
 
         Box::pin(async move {
-            let jwt_context = req
-                .app_data::<JwtContext>()
-                .expect("JwtContext not in app data");
+            let auth_config = req
+                .app_data::<AuthConfig>()
+                .expect("AuthConfig not in app data");
 
-            // 1. Extract Cookie
             if let Some(cookie) = req.cookie("auth-token") {
-                // 2. Load into Jar for Decryption
                 let mut jar = CookieJar::new();
                 jar.add_original(cookie);
 
-                // 3. Verify Signature & Decrypt
-                if let Some(private_cookie) = jar.private(&jwt_context.key).get("auth-token") {
+                if let Some(private_cookie) = jar.private(&auth_config.key).get("auth-token") {
                     let value_str = private_cookie.value();
 
-                    // 4. Base64 Decode
                     if let Ok(decoded_bytes) = BASE64.decode(value_str) {
-                        // 5. Bincode Decode
                         let config = config::standard();
                         if let Ok((session, _size)) =
                             bincode::decode_from_slice::<AuthSession, _>(&decoded_bytes, config)
                         {
-                            // 6. Validations
-
-                            // A. Check Expiry
                             if session.exp < Utc::now().timestamp() {
                                 return Err(ErrorUnauthorized("Token expired"));
                             }
 
-                            // B. Check Origin (Strict)
-                            // If Origin header is missing OR mismatch -> Reject
                             let origin_header =
                                 req.headers().get("Origin").and_then(|h| h.to_str().ok());
 
                             match origin_header {
                                 Some(o) if o == session.origin => {
-                                    // 7. Success: Attach USER (not the whole session)
                                     req.extensions_mut().insert(Rc::new(session.user));
                                     return srv.call(req).await;
                                 }
@@ -234,7 +223,7 @@ mod tests {
         let cookie = create_test_cookie(&key, default_user(), "http://localhost", 3600);
 
         let req = TestRequest::default()
-            .app_data(JwtContext::with_key(key))
+            .app_data(AuthConfig::with_key(key))
             .cookie(cookie)
             .insert_header(("Origin", "http://localhost"))
             .to_srv_request();
@@ -256,7 +245,7 @@ mod tests {
         let cookie = create_test_cookie(&key, default_user(), "http://localhost", -10);
 
         let req = TestRequest::default()
-            .app_data(JwtContext::with_key(key))
+            .app_data(AuthConfig::with_key(key))
             .cookie(cookie)
             .insert_header(("Origin", "http://localhost"))
             .to_srv_request();
@@ -278,7 +267,7 @@ mod tests {
         let cookie = create_test_cookie(&key, default_user(), "http://localhost", 3600);
 
         let req = TestRequest::default()
-            .app_data(JwtContext::with_key(key))
+            .app_data(AuthConfig::with_key(key))
             .cookie(cookie)
             // Header says evil.com, token says localhost
             .insert_header(("Origin", "http://evil.com"))
@@ -305,7 +294,7 @@ mod tests {
         cookie.set_value(bad_value);
 
         let req = TestRequest::default()
-            .app_data(JwtContext::with_key(key))
+            .app_data(AuthConfig::with_key(key))
             .cookie(cookie)
             .insert_header(("Origin", "http://localhost"))
             .to_srv_request();
@@ -324,7 +313,7 @@ mod tests {
     #[actix_web::test]
     async fn test_auth_fails_missing_cookie() {
         let req = TestRequest::default()
-            .app_data(JwtContext::with_key(Key::generate()))
+            .app_data(AuthConfig::with_key(Key::generate()))
             .insert_header(("Origin", "http://localhost"))
             .to_srv_request();
 

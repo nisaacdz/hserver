@@ -14,20 +14,12 @@ pub struct RoomAvailability {
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct Period {
-    pub start: DateTime<Utc>,
-    pub end: DateTime<Utc>,
-}
-
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
 pub struct CalendarBlock {
     pub id: Uuid,
-    pub start: DateTime<Utc>,
-    pub end: DateTime<Utc>,
+    pub period: (Bound<DateTime<Utc>>, Bound<DateTime<Utc>>),
     #[serde(rename = "type")]
     pub kind: BlockKind,
-    pub label: String,
+    pub label: Option<String>,
 }
 
 #[derive(Serialize)]
