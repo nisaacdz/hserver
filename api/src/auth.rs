@@ -58,8 +58,7 @@ impl<Ctx> Decode<Ctx> for SessionUser {
 
 #[derive(Encode, Decode, Debug)]
 pub struct AuthSession {
-    pub exp: i64,       // Expiration Timestamp
-    pub origin: String, // The domain this token is bound to
+    pub exp: i64,
     pub user: SessionUser,
 }
 
@@ -68,16 +67,26 @@ pub struct AuthSession {
 // ==========================================
 
 /// Helper to generate the cookie value during Login
-pub fn create_unsigned_session_token(user: SessionUser, origin: String, config: &SecurityConfig) -> String {
+/// Helper to generate the cookie value during Login
+pub fn generate_auth_cookie(
+    user: SessionUser,
+    config: &SecurityConfig,
+) -> actix_web::cookie::Cookie<'static> {
     let session = AuthSession {
         exp: Utc::now().timestamp() + config.session_duration as i64,
-        origin,
         user,
     };
 
     let config = config::standard();
     let encoded_bytes = bincode::encode_to_vec(session, config).unwrap();
-    BASE64.encode(&encoded_bytes)
+    let token = BASE64.encode(&encoded_bytes);
+
+    actix_web::cookie::Cookie::build("auth-token", token)
+        .secure(true)
+        .http_only(true)
+        .same_site(actix_web::cookie::SameSite::Strict)
+        .path("/")
+        .finish()
 }
 
 // ==========================================
@@ -165,16 +174,8 @@ where
                                 return Err(ErrorUnauthorized("Token expired"));
                             }
 
-                            let origin_header =
-                                req.headers().get("Origin").and_then(|h| h.to_str().ok());
-
-                            match origin_header {
-                                Some(o) if o == session.origin => {
-                                    req.extensions_mut().insert(Rc::new(session.user));
-                                    return srv.call(req).await;
-                                }
-                                _ => return Err(ErrorUnauthorized("Invalid Origin")),
-                            }
+                            req.extensions_mut().insert(Rc::new(session.user));
+                            return srv.call(req).await;
                         }
                     }
                 }
@@ -191,15 +192,9 @@ mod tests {
     use actix_web::cookie::Cookie;
     use actix_web::test::{self, TestRequest};
 
-    fn create_test_cookie(
-        key: &Key,
-        user: SessionUser,
-        origin: &str,
-        exp_offset: i64,
-    ) -> Cookie<'static> {
+    fn create_test_cookie(key: &Key, user: SessionUser, exp_offset: i64) -> Cookie<'static> {
         let session = AuthSession {
             exp: Utc::now().timestamp() + exp_offset,
-            origin: origin.to_string(),
             user,
         };
         let bytes = bincode::encode_to_vec(session, config::standard()).unwrap();
@@ -220,12 +215,11 @@ mod tests {
     #[actix_web::test]
     async fn test_auth_success() {
         let key = Key::generate();
-        let cookie = create_test_cookie(&key, default_user(), "http://localhost", 3600);
+        let cookie = create_test_cookie(&key, default_user(), 3600);
 
         let req = TestRequest::default()
             .app_data(AuthConfig::with_key(key))
             .cookie(cookie)
-            .insert_header(("Origin", "http://localhost"))
             .to_srv_request();
 
         let resp = AuthMiddleware
@@ -242,12 +236,11 @@ mod tests {
     async fn test_auth_fails_expired() {
         let key = Key::generate();
         // Expiry set to -10 seconds (Past)
-        let cookie = create_test_cookie(&key, default_user(), "http://localhost", -10);
+        let cookie = create_test_cookie(&key, default_user(), -10);
 
         let req = TestRequest::default()
             .app_data(AuthConfig::with_key(key))
             .cookie(cookie)
-            .insert_header(("Origin", "http://localhost"))
             .to_srv_request();
 
         let resp = AuthMiddleware
@@ -262,31 +255,9 @@ mod tests {
     }
 
     #[actix_web::test]
-    async fn test_auth_fails_wrong_origin() {
-        let key = Key::generate();
-        let cookie = create_test_cookie(&key, default_user(), "http://localhost", 3600);
-
-        let req = TestRequest::default()
-            .app_data(AuthConfig::with_key(key))
-            .cookie(cookie)
-            // Header says evil.com, token says localhost
-            .insert_header(("Origin", "http://evil.com"))
-            .to_srv_request();
-
-        let resp = AuthMiddleware
-            .new_transform(test::ok_service())
-            .await
-            .unwrap()
-            .call(req)
-            .await;
-
-        assert!(resp.is_err());
-    }
-
-    #[actix_web::test]
     async fn test_auth_fails_tampered_cookie() {
         let key = Key::generate();
-        let mut cookie = create_test_cookie(&key, default_user(), "http://localhost", 3600);
+        let mut cookie = create_test_cookie(&key, default_user(), 3600);
 
         // Maliciously modify the encrypted string
         let mut bad_value = cookie.value().to_string();
@@ -296,7 +267,6 @@ mod tests {
         let req = TestRequest::default()
             .app_data(AuthConfig::with_key(key))
             .cookie(cookie)
-            .insert_header(("Origin", "http://localhost"))
             .to_srv_request();
 
         let resp = AuthMiddleware
@@ -314,7 +284,6 @@ mod tests {
     async fn test_auth_fails_missing_cookie() {
         let req = TestRequest::default()
             .app_data(AuthConfig::with_key(Key::generate()))
-            .insert_header(("Origin", "http://localhost"))
             .to_srv_request();
 
         let resp = AuthMiddleware
