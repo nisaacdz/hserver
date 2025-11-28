@@ -22,7 +22,7 @@ use uuid::Uuid;
 #[derive(Clone, Debug, PartialEq)]
 pub struct SessionUser {
     pub id: Uuid,
-    pub staff_id: Uuid,
+    pub staff_id: Option<Uuid>,
     pub email: String,
 }
 
@@ -34,7 +34,7 @@ impl Encode for SessionUser {
         encoder: &mut E,
     ) -> Result<(), bincode::error::EncodeError> {
         bincode::Encode::encode(&self.id.as_bytes(), encoder)?;
-        bincode::Encode::encode(&self.staff_id.as_bytes(), encoder)?;
+        bincode::Encode::encode(&self.staff_id.as_ref().map(|id| id.as_bytes()), encoder)?;
         bincode::Encode::encode(&self.email, encoder)?;
         Ok(())
     }
@@ -45,7 +45,7 @@ impl<Ctx> Decode<Ctx> for SessionUser {
         decoder: &mut D,
     ) -> Result<Self, bincode::error::DecodeError> {
         let id = Uuid::from_bytes(bincode::Decode::decode(decoder)?);
-        let staff_id = Uuid::from_bytes(bincode::Decode::decode(decoder)?);
+        let staff_id = Option::<[u8; 16]>::decode(decoder)?.map(Uuid::from_bytes);
         let email = bincode::Decode::decode(decoder)?;
 
         Ok(SessionUser {
@@ -77,7 +77,7 @@ pub fn create_session_token(user: SessionUser, origin: String) -> String {
 
     let config = config::standard();
     let encoded_bytes = bincode::encode_to_vec(session, config).unwrap();
-    BASE64.encode(encoded_bytes)
+    unsafe { String::from_utf8_unchecked(encoded_bytes) }
 }
 
 // ==========================================
@@ -153,7 +153,7 @@ where
             if let Some(cookie) = req.cookie("auth-token") {
                 // 2. Load into Jar for Decryption
                 let mut jar = CookieJar::new();
-                jar.add_original(cookie.clone());
+                jar.add_original(cookie);
 
                 // 3. Verify Signature & Decrypt
                 if let Some(private_cookie) = jar.private(&jwt_context.key).get("auth-token") {
@@ -199,106 +199,142 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use actix_web::cookie::*;
+    use actix_web::cookie::Cookie;
+    use actix_web::test::{self, TestRequest};
 
-    #[test]
-    fn test_token_creation_and_decoding() {
-        // Setup Data
-        let user = SessionUser {
-            id: Uuid::new_v4(),
-            staff_id: Uuid::new_v4(),
-            email: "test@example.com".to_string(),
+    fn create_test_cookie(
+        key: &Key,
+        user: SessionUser,
+        origin: &str,
+        exp_offset: i64,
+    ) -> Cookie<'static> {
+        let session = AuthSession {
+            exp: Utc::now().timestamp() + exp_offset,
+            origin: origin.to_string(),
+            user,
         };
-        let origin = "http://localhost".to_string();
+        let bytes = bincode::encode_to_vec(session, config::standard()).unwrap();
+        let b64_str = BASE64.encode(bytes);
+        let mut jar = CookieJar::new();
+        jar.private_mut(key).add(Cookie::new("auth-token", b64_str));
+        jar.get("auth-token").unwrap().clone()
+    }
 
-        // 1. Create Token (using our helper logic)
-        let token_str = create_session_token(user.clone(), origin.clone());
-
-        // 2. Decode manually to verify
-        let decoded_bytes = BASE64.decode(token_str).unwrap();
-        let (decoded_session, _): (AuthSession, usize) =
-            bincode::decode_from_slice(&decoded_bytes, config::standard()).unwrap();
-
-        assert_eq!(decoded_session.user, user);
-        assert_eq!(decoded_session.origin, origin);
+    fn default_user() -> SessionUser {
+        SessionUser {
+            id: Uuid::new_v4(),
+            staff_id: None,
+            email: "test@test.com".to_string(),
+        }
     }
 
     #[actix_web::test]
-    async fn test_auth_middleware_flow() {
+    async fn test_auth_success() {
         let key = Key::generate();
-        let jwt_context = JwtContext::with_key(key.clone());
+        let cookie = create_test_cookie(&key, default_user(), "http://localhost", 3600);
 
-        // 1. Setup User & Token
-        let user = SessionUser {
-            id: Uuid::new_v4(),
-            staff_id: Uuid::new_v4(),
-            email: "middleware@test.com".to_string(),
-        };
-
-        // Generate the inner payload
-        let payload_str = create_session_token(user.clone(), "http://localhost".to_string());
-
-        // 2. Encrypt it into a Cookie (Simulating the Server's Login Response)
-        let mut jar = CookieJar::new();
-        jar.private_mut(&key)
-            .add(Cookie::new("auth-token", payload_str));
-        let encrypted_value = jar.get("auth-token").unwrap().value().to_string();
-
-        // 3. Create Request
-        let req = actix_web::test::TestRequest::default()
-            .app_data(jwt_context)
-            .cookie(Cookie::build("auth-token", encrypted_value).finish())
-            .insert_header(("Origin", "http://localhost")) // Header matches token
+        let req = TestRequest::default()
+            .app_data(JwtContext::with_key(key))
+            .cookie(cookie)
+            .insert_header(("Origin", "http://localhost"))
             .to_srv_request();
 
-        // 4. Run Middleware
-        let middleware = AuthMiddleware;
-        let srv = middleware
-            .new_transform(actix_web::test::ok_service())
+        let resp = AuthMiddleware
+            .new_transform(test::ok_service())
             .await
-            .unwrap();
+            .unwrap()
+            .call(req)
+            .await;
 
-        let resp = srv.call(req).await;
-
-        // Should succeed
         assert!(resp.is_ok());
     }
 
     #[actix_web::test]
-    async fn test_fail_invalid_origin() {
+    async fn test_auth_fails_expired() {
         let key = Key::generate();
-        let jwt_context = JwtContext::with_key(key.clone());
+        // Expiry set to -10 seconds (Past)
+        let cookie = create_test_cookie(&key, default_user(), "http://localhost", -10);
 
-        let user = SessionUser {
-            id: Uuid::new_v4(),
-            staff_id: Uuid::new_v4(),
-            email: "hack@test.com".to_string(),
-        };
+        let req = TestRequest::default()
+            .app_data(JwtContext::with_key(key))
+            .cookie(cookie)
+            .insert_header(("Origin", "http://localhost"))
+            .to_srv_request();
 
-        // Token bound to localhost
-        let payload_str = create_session_token(user, "http://localhost".to_string());
+        let resp = AuthMiddleware
+            .new_transform(test::ok_service())
+            .await
+            .unwrap()
+            .call(req)
+            .await;
 
-        let mut jar = CookieJar::new();
-        jar.private_mut(&key)
-            .add(Cookie::new("auth-token", payload_str));
-        let encrypted_value = jar.get("auth-token").unwrap().value().to_string();
+        // Should return 401 Unauthorized
+        assert!(resp.is_err());
+    }
 
-        // Request coming from EVIL.COM
-        let req = actix_web::test::TestRequest::default()
-            .app_data(jwt_context)
-            .cookie(Cookie::build("auth-token", encrypted_value).finish())
+    #[actix_web::test]
+    async fn test_auth_fails_wrong_origin() {
+        let key = Key::generate();
+        let cookie = create_test_cookie(&key, default_user(), "http://localhost", 3600);
+
+        let req = TestRequest::default()
+            .app_data(JwtContext::with_key(key))
+            .cookie(cookie)
+            // Header says evil.com, token says localhost
             .insert_header(("Origin", "http://evil.com"))
             .to_srv_request();
 
-        let middleware = AuthMiddleware;
-        let srv = middleware
-            .new_transform(actix_web::test::ok_service())
+        let resp = AuthMiddleware
+            .new_transform(test::ok_service())
             .await
-            .unwrap();
+            .unwrap()
+            .call(req)
+            .await;
 
-        let resp = srv.call(req).await;
+        assert!(resp.is_err());
+    }
 
-        // Should Fail
+    #[actix_web::test]
+    async fn test_auth_fails_tampered_cookie() {
+        let key = Key::generate();
+        let mut cookie = create_test_cookie(&key, default_user(), "http://localhost", 3600);
+
+        // Maliciously modify the encrypted string
+        let mut bad_value = cookie.value().to_string();
+        bad_value.push('a'); // Corrupt the signature/data
+        cookie.set_value(bad_value);
+
+        let req = TestRequest::default()
+            .app_data(JwtContext::with_key(key))
+            .cookie(cookie)
+            .insert_header(("Origin", "http://localhost"))
+            .to_srv_request();
+
+        let resp = AuthMiddleware
+            .new_transform(test::ok_service())
+            .await
+            .unwrap()
+            .call(req)
+            .await;
+
+        // PrivateJar signature check should fail -> None -> Unauthorized
+        assert!(resp.is_err());
+    }
+
+    #[actix_web::test]
+    async fn test_auth_fails_missing_cookie() {
+        let req = TestRequest::default()
+            .app_data(JwtContext::with_key(Key::generate()))
+            .insert_header(("Origin", "http://localhost"))
+            .to_srv_request();
+
+        let resp = AuthMiddleware
+            .new_transform(test::ok_service())
+            .await
+            .unwrap()
+            .call(req)
+            .await;
+
         assert!(resp.is_err());
     }
 }

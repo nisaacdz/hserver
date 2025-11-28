@@ -1,3 +1,5 @@
+use std::ops::Bound;
+
 use chrono::{DateTime, Utc};
 use serde::Serialize;
 use uuid::Uuid;
@@ -6,7 +8,7 @@ use uuid::Uuid;
 #[serde(rename_all = "camelCase")]
 pub struct RoomAvailability {
     pub room_id: Uuid,
-    pub period: Period,
+    pub period: (Bound<DateTime<Utc>>, Bound<DateTime<Utc>>),
     pub blocks: Vec<CalendarBlock>,
 }
 

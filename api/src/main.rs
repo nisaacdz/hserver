@@ -9,8 +9,11 @@ async fn main() -> std::io::Result<()> {
     let config = {
         dotenvy::dotenv().ok();
 
+        let run_mode = std::env::var("RUN_MODE").unwrap_or("development".to_string());
+
         let config: AppConfig = Config::builder()
-            .add_source(File::with_name("./config/default"))
+            .add_source(File::with_name("config/default"))
+            .add_source(File::with_name(&format!("config/{}", run_mode)).required(false))
             .add_source(config::Environment::with_prefix("APP").separator("__"))
             .build()
             .expect("Failed to build configuration")
