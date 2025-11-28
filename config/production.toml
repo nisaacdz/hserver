@@ -1,0 +1,13 @@
+[server]
+host = "0.0.0.0"
+port = 8080
+
+[database]
+max_connections = 10
+
+[application]
+name = "Hotel Plus"
+environment = "production"
+
+[security]
+session_duration = 86400
