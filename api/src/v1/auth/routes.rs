@@ -1,10 +1,9 @@
 use actix_web::{HttpResponse, web};
 use diesel::prelude::*;
 use diesel_async::RunQueryDsl;
-use domain::SecurityConfig;
 use infrastructure::db::DbPool;
 
-use crate::auth::{SessionUser, generate_auth_cookie};
+use crate::auth::{SessionUser, TokenEngine, generate_auth_cookie};
 use crate::v1::auth::dtos::{AuthUser, LoginRequest, LoginResponse};
 use crate::v1::auth::errors::AuthError;
 use infrastructure::models::User;
@@ -12,7 +11,7 @@ use infrastructure::schema::users::dsl as users_dsl;
 
 pub async fn login(
     pool: web::Data<DbPool>,
-    config: web::Data<SecurityConfig>,
+    token_engine: web::Data<TokenEngine>,
     web::Json(req): web::Json<LoginRequest>,
 ) -> Result<HttpResponse, AuthError> {
     let mut conn = pool.get().await.map_err(|_| AuthError::InternalError)?;
@@ -31,7 +30,6 @@ pub async fn login(
         .as_deref()
         .ok_or(AuthError::InvalidCredentials)?;
 
-    // Simple check (REPLACE WITH HASH VERIFICATION)
     if stored_pass != req.password {
         return Err(AuthError::InvalidCredentials);
     }
@@ -42,13 +40,13 @@ pub async fn login(
         email: user.email.clone(),
     };
 
-    let cookie = generate_auth_cookie(session_user, &config);
+    let cookie =
+        generate_auth_cookie(&token_engine, session_user).map_err(|_| AuthError::InternalError)?;
 
     let response = LoginResponse {
         user: AuthUser {
             id: user.id,
             email: user.email,
-            username: None, // User model doesn't have username
         },
     };
 

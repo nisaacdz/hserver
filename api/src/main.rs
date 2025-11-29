@@ -1,5 +1,5 @@
 use actix_web::{App, HttpServer, web};
-use api::{auth::AuthConfig, v1::configure_v1_routes};
+use api::{auth::TokenEngine, v1::configure_v1_routes};
 use config::{Config, File};
 use domain::AppConfig;
 use infrastructure::db;
@@ -24,7 +24,7 @@ async fn main() -> std::io::Result<()> {
     };
 
     let pool = db::init_pool(&config.database).expect("Failed to initialize pg connection pool");
-    let auth = web::Data::new(AuthConfig::new(&config.security));
+    let token_engine = web::Data::new(TokenEngine::new(&config.security));
 
     println!(
         "Starting server at {}:{}",
@@ -32,17 +32,17 @@ async fn main() -> std::io::Result<()> {
     );
 
     let web_pool = web::Data::new(pool.clone());
-    let web_auth_config = web::Data::new(auth.clone());
+    let web_token_engine = web::Data::new(token_engine.clone());
     let web_app_config = web::Data::new(config.clone());
 
     HttpServer::new(move || {
         let web_pool = web_pool.clone();
-        let web_auth_config = web_auth_config.clone();
+        let web_token_engine = web_token_engine.clone();
         let web_app_config = web_app_config.clone();
         App::new()
             .app_data(web_pool)
             .app_data(web_app_config)
-            .app_data(web_auth_config)
+            .app_data(web_token_engine)
             .configure(|cfg| {
                 cfg.service(web::scope("/api").configure(configure_v1_routes));
             })

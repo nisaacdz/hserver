@@ -16,5 +16,4 @@ pub struct LoginResponse {
 pub struct AuthUser {
     pub id: Uuid,
     pub email: String,
-    pub username: Option<String>, // Added based on style.md example, though not in User model explicitly? Check User model.
 }

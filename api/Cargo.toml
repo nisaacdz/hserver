@@ -22,3 +22,5 @@ validators = { version = "0.25", features = ["uuid"] }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
 derive_more = { version = "2.0.1", features = ["display", "error"] }
+chacha20poly1305 = "0.10"
+rand = { workspace = true }

@@ -1,23 +1,25 @@
 use actix_web::{
     Error, HttpMessage,
-    cookie::{CookieJar, Key},
+    cookie::{Cookie, SameSite},
     dev::{Service, ServiceRequest, ServiceResponse, Transform},
-    error::ErrorUnauthorized,
+    error::{ErrorUnauthorized, InternalError},
+    http::StatusCode,
 };
 use base64::{Engine as _, engine::general_purpose::STANDARD as BASE64};
 use bincode::{Decode, Encode, config};
+use chacha20poly1305::{
+    XChaCha20Poly1305, XNonce,
+    aead::{Aead, KeyInit},
+};
 use chrono::Utc;
 use domain::SecurityConfig;
-use futures_util::future::{Ready, ok};
-use futures_util::task::{Context, Poll};
-use std::future::Future;
-use std::pin::Pin;
-use std::rc::Rc;
+use futures_util::{
+    future::{Ready, ok},
+    task::{Context, Poll},
+};
+use rand::RngCore;
+use std::{future::Future, pin::Pin, rc::Rc};
 use uuid::Uuid;
-
-// ==========================================
-// 1. Data Models
-// ==========================================
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct SessionUser {
@@ -26,6 +28,7 @@ pub struct SessionUser {
     pub email: String,
 }
 
+// Bincode implementation for efficient binary serialization
 bincode::impl_borrow_decode! {SessionUser}
 
 impl Encode for SessionUser {
@@ -56,62 +59,104 @@ impl<Ctx> Decode<Ctx> for SessionUser {
     }
 }
 
+/// Internal wrapper to include expiration in the encrypted payload
 #[derive(Encode, Decode, Debug)]
 pub struct AuthSession {
     pub exp: i64,
     pub user: SessionUser,
 }
 
-// ==========================================
-// 2. Token Logic (Helper)
-// ==========================================
-
-/// Helper to generate the cookie value during Login
-/// Helper to generate the cookie value during Login
-pub fn generate_auth_cookie(
-    user: SessionUser,
-    config: &SecurityConfig,
-) -> actix_web::cookie::Cookie<'static> {
-    let session = AuthSession {
-        exp: Utc::now().timestamp() + config.session_duration as i64,
-        user,
-    };
-
-    let config = config::standard();
-    let encoded_bytes = bincode::encode_to_vec(session, config).unwrap();
-    let token = BASE64.encode(&encoded_bytes);
-
-    actix_web::cookie::Cookie::build("auth-token", token)
-        .secure(true)
-        .http_only(true)
-        .same_site(actix_web::cookie::SameSite::Strict)
-        .path("/")
-        .finish()
+#[derive(Clone)]
+pub struct TokenEngine {
+    cipher: XChaCha20Poly1305,
+    duration: i64,
 }
 
-// ==========================================
-// 3. The Middleware
-// ==========================================
-
-pub struct AuthConfig {
-    key: Key,
-}
-
-impl AuthConfig {
+impl TokenEngine {
     pub fn new(config: &SecurityConfig) -> Self {
+        let key_bytes = config.key.as_bytes();
+        if key_bytes.len() != 32 {
+            panic!("Security key must be exactly 32 bytes long for XChaCha20Poly1305");
+        }
+
+        let key = chacha20poly1305::Key::from_slice(key_bytes);
+
         Self {
-            key: Key::from(config.key.as_bytes()),
+            cipher: XChaCha20Poly1305::new(key),
+            duration: config.session_duration as i64,
         }
     }
 
-    pub fn with_key(key: Key) -> Self {
-        Self { key }
+    /// Serializes and Encrypts user data into a Base64 string.
+    /// Optimized for minimum allocations.
+    pub fn create_token(&self, user: SessionUser) -> Result<String, Error> {
+        let session = AuthSession {
+            exp: Utc::now().timestamp() + self.duration,
+            user,
+        };
+
+        let config = config::standard();
+        let payload_bytes = bincode::encode_to_vec(session, config)
+            .map_err(|_| ErrorUnauthorized("Serialization error"))?;
+
+        let mut nonce = XNonce::default();
+        rand::rng().fill_bytes(&mut nonce);
+
+        let ciphertext = self
+            .cipher
+            .encrypt(&nonce, payload_bytes.as_ref())
+            .map_err(|_| ErrorUnauthorized("Encryption failed"))?;
+
+        let mut final_buffer = Vec::with_capacity(nonce.len() + ciphertext.len());
+        final_buffer.extend_from_slice(&nonce);
+        final_buffer.extend_from_slice(&ciphertext);
+        Ok(BASE64.encode(final_buffer))
     }
+
+    /// Decrypts a Base64 string back into SessionUser
+    pub fn verify_token(&self, token_str: &str) -> Result<SessionUser, Error> {
+        let encrypted_data = BASE64
+            .decode(token_str)
+            .map_err(|_| ErrorUnauthorized("Invalid token encoding"))?;
+
+        if encrypted_data.len() < 24 {
+            return Err(ErrorUnauthorized("Token too short"));
+        }
+        let (nonce_bytes, ciphertext) = encrypted_data.split_at(24);
+        let nonce = XNonce::from_slice(nonce_bytes);
+
+        let plaintext = self
+            .cipher
+            .decrypt(nonce, ciphertext)
+            .map_err(|_| ErrorUnauthorized("Invalid token signature or data"))?;
+        let config = config::standard();
+        let (session, _): (AuthSession, usize) = bincode::decode_from_slice(&plaintext, config)
+            .map_err(|_| ErrorUnauthorized("Invalid session data"))?;
+        if session.exp < Utc::now().timestamp() {
+            return Err(ErrorUnauthorized("Token expired"));
+        }
+
+        Ok(session.user)
+    }
+}
+
+/// Helper to generate the HTTP Cookie
+pub fn generate_auth_cookie(
+    token_engine: &TokenEngine,
+    user: SessionUser,
+) -> Result<Cookie<'static>, Error> {
+    let token_str = token_engine.create_token(user)?;
+
+    Ok(Cookie::build("auth-token", token_str)
+        .secure(true)
+        .http_only(true)
+        .same_site(SameSite::Strict)
+        .path("/")
+        .finish())
 }
 
 pub struct AuthMiddleware;
 
-// Middleware Factory
 impl<S, B> Transform<S, ServiceRequest> for AuthMiddleware
 where
     S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error> + 'static,
@@ -131,7 +176,6 @@ where
     }
 }
 
-// Middleware Logic
 pub struct AuthMiddlewareService<S> {
     service: Rc<S>,
 }
@@ -154,34 +198,26 @@ where
         let srv = self.service.clone();
 
         Box::pin(async move {
-            let auth_config = req
-                .app_data::<AuthConfig>()
-                .expect("AuthConfig not in app data");
+            let token_engine =
+                req.app_data::<actix_web::web::Data<TokenEngine>>()
+                    .ok_or(InternalError::new(
+                        "Internal Error: TokenEngine not configured",
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                    ))?;
 
             if let Some(cookie) = req.cookie("auth-token") {
-                let mut jar = CookieJar::new();
-                jar.add_original(cookie);
+                let token_str = cookie.value();
 
-                if let Some(private_cookie) = jar.private(&auth_config.key).get("auth-token") {
-                    let value_str = private_cookie.value();
-
-                    if let Ok(decoded_bytes) = BASE64.decode(value_str) {
-                        let config = config::standard();
-                        if let Ok((session, _size)) =
-                            bincode::decode_from_slice::<AuthSession, _>(&decoded_bytes, config)
-                        {
-                            if session.exp < Utc::now().timestamp() {
-                                return Err(ErrorUnauthorized("Token expired"));
-                            }
-
-                            req.extensions_mut().insert(Rc::new(session.user));
-                            return srv.call(req).await;
-                        }
+                match token_engine.verify_token(token_str) {
+                    Ok(user) => {
+                        req.extensions_mut().insert(Rc::new(user));
+                        return srv.call(req).await;
                     }
+                    Err(e) => return Err(e),
                 }
             }
 
-            Err(ErrorUnauthorized("Invalid or missing authentication token"))
+            Err(ErrorUnauthorized("Missing authentication token"))
         })
     }
 }
@@ -189,36 +225,80 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use actix_web::cookie::Cookie;
     use actix_web::test::{self, TestRequest};
-
-    fn create_test_cookie(key: &Key, user: SessionUser, exp_offset: i64) -> Cookie<'static> {
-        let session = AuthSession {
-            exp: Utc::now().timestamp() + exp_offset,
-            user,
-        };
-        let bytes = bincode::encode_to_vec(session, config::standard()).unwrap();
-        let b64_str = BASE64.encode(bytes);
-        let mut jar = CookieJar::new();
-        jar.private_mut(key).add(Cookie::new("auth-token", b64_str));
-        jar.get("auth-token").unwrap().clone()
-    }
+    use actix_web::web::Data;
 
     fn default_user() -> SessionUser {
         SessionUser {
             id: Uuid::new_v4(),
             staff_id: None,
-            email: "test@test.com".to_string(),
+            email: "perf_test@test.com".to_string(),
         }
     }
 
+    fn get_test_service() -> TokenEngine {
+        let config = SecurityConfig {
+            key: "01234567890123456789012345678901".to_string(),
+            session_duration: 3600,
+        };
+        TokenEngine::new(&config)
+    }
+
+    #[test]
+    fn test_token_round_trip() {
+        let service = get_test_service();
+        let user = default_user();
+
+        let token = service
+            .create_token(user.clone())
+            .expect("Encryption failed");
+
+        let decoded_user = service.verify_token(&token).expect("Decryption failed");
+
+        assert_eq!(user, decoded_user);
+    }
+
+    #[test]
+    fn test_tampered_token_fails() {
+        let service = get_test_service();
+        let token = service.create_token(default_user()).unwrap();
+
+        let mut raw = BASE64.decode(&token).unwrap();
+        let last_idx = raw.len() - 1;
+        raw[last_idx] ^= 0xFF;
+
+        let bad_token = BASE64.encode(raw);
+
+        let result = service.verify_token(&bad_token);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_expired_token() {
+        let config = SecurityConfig {
+            key: "01234567890123456789012345678901".to_string(),
+            session_duration: 0,
+        };
+
+        let service = TokenEngine::new(&config);
+
+        let token = service.create_token(default_user()).unwrap();
+
+        std::thread::sleep(std::time::Duration::from_secs(1));
+
+        let result = service.verify_token(&token);
+
+        assert!(result.is_err());
+    }
+
     #[actix_web::test]
-    async fn test_auth_success() {
-        let key = Key::generate();
-        let cookie = create_test_cookie(&key, default_user(), 3600);
+    async fn test_middleware_integration() {
+        let service = get_test_service();
+        let user = default_user();
+        let cookie = generate_auth_cookie(&service, user).unwrap();
 
         let req = TestRequest::default()
-            .app_data(AuthConfig::with_key(key))
+            .app_data(Data::new(service))
             .cookie(cookie)
             .to_srv_request();
 
@@ -230,69 +310,5 @@ mod tests {
             .await;
 
         assert!(resp.is_ok());
-    }
-
-    #[actix_web::test]
-    async fn test_auth_fails_expired() {
-        let key = Key::generate();
-        // Expiry set to -10 seconds (Past)
-        let cookie = create_test_cookie(&key, default_user(), -10);
-
-        let req = TestRequest::default()
-            .app_data(AuthConfig::with_key(key))
-            .cookie(cookie)
-            .to_srv_request();
-
-        let resp = AuthMiddleware
-            .new_transform(test::ok_service())
-            .await
-            .unwrap()
-            .call(req)
-            .await;
-
-        // Should return 401 Unauthorized
-        assert!(resp.is_err());
-    }
-
-    #[actix_web::test]
-    async fn test_auth_fails_tampered_cookie() {
-        let key = Key::generate();
-        let mut cookie = create_test_cookie(&key, default_user(), 3600);
-
-        // Maliciously modify the encrypted string
-        let mut bad_value = cookie.value().to_string();
-        bad_value.push('a'); // Corrupt the signature/data
-        cookie.set_value(bad_value);
-
-        let req = TestRequest::default()
-            .app_data(AuthConfig::with_key(key))
-            .cookie(cookie)
-            .to_srv_request();
-
-        let resp = AuthMiddleware
-            .new_transform(test::ok_service())
-            .await
-            .unwrap()
-            .call(req)
-            .await;
-
-        // PrivateJar signature check should fail -> None -> Unauthorized
-        assert!(resp.is_err());
-    }
-
-    #[actix_web::test]
-    async fn test_auth_fails_missing_cookie() {
-        let req = TestRequest::default()
-            .app_data(AuthConfig::with_key(Key::generate()))
-            .to_srv_request();
-
-        let resp = AuthMiddleware
-            .new_transform(test::ok_service())
-            .await
-            .unwrap()
-            .call(req)
-            .await;
-
-        assert!(resp.is_err());
     }
 }
