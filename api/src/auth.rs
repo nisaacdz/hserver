@@ -5,6 +5,10 @@ use actix_web::{
     error::{ErrorUnauthorized, InternalError},
     http::StatusCode,
 };
+use argon2::{
+    Argon2,
+    password_hash::{PasswordHash, PasswordHasher, PasswordVerifier, SaltString, rand_core::OsRng},
+};
 use base64::{Engine as _, engine::general_purpose::STANDARD as BASE64};
 use bincode::{Decode, Encode, config};
 use chacha20poly1305::{
@@ -20,13 +24,6 @@ use futures_util::{
 use rand::RngCore;
 use std::{future::Future, pin::Pin, rc::Rc};
 use uuid::Uuid;
-use argon2::{
-    password_hash::{
-        rand_core::OsRng,
-        PasswordHash, PasswordHasher, PasswordVerifier, SaltString
-    },
-    Argon2
-};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct SessionUser {
@@ -175,11 +172,10 @@ pub fn hash_password(plain_password: &str) -> Result<String, String> {
 
 /// Used during Login: Verifies a plain password against a stored Argon2 hash.
 pub fn verify_password(plain_password: &str, stored_hash: &str) -> Result<bool, String> {
-    let parsed_hash = PasswordHash::new(stored_hash)
-        .map_err(|e| e.to_string())?;
+    let parsed_hash = PasswordHash::new(stored_hash).map_err(|e| e.to_string())?;
 
     let argon2 = Argon2::default();
-    
+
     let is_valid = argon2
         .verify_password(plain_password.as_bytes(), &parsed_hash)
         .is_ok();
