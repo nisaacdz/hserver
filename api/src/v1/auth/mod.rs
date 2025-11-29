@@ -1,5 +1,7 @@
 use actix_web::web;
 
+pub mod dtos;
+pub mod errors;
 mod routes;
 
 use routes::login;

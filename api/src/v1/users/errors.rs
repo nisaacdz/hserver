@@ -5,16 +5,16 @@ use actix_web::{
 use serde::Serialize;
 
 #[derive(Debug)]
-pub enum AuthError {
-    InvalidCredentials,
+pub enum UserError {
+    NotFound,
     InternalError,
 }
 
-impl std::fmt::Display for AuthError {
+impl std::fmt::Display for UserError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            AuthError::InvalidCredentials => write!(f, "Invalid credentials"),
-            AuthError::InternalError => write!(f, "Internal Server Error"),
+            UserError::NotFound => write!(f, "User not found"),
+            UserError::InternalError => write!(f, "Internal Server Error"),
         }
     }
 }
@@ -24,7 +24,7 @@ struct ErrorResponse {
     message: String,
 }
 
-impl ResponseError for AuthError {
+impl ResponseError for UserError {
     fn error_response(&self) -> HttpResponse {
         let response = ErrorResponse {
             message: self.to_string(),
@@ -37,8 +37,8 @@ impl ResponseError for AuthError {
 
     fn status_code(&self) -> StatusCode {
         match self {
-            AuthError::InvalidCredentials => StatusCode::UNAUTHORIZED,
-            AuthError::InternalError => StatusCode::INTERNAL_SERVER_ERROR,
+            UserError::NotFound => StatusCode::NOT_FOUND,
+            UserError::InternalError => StatusCode::INTERNAL_SERVER_ERROR,
         }
     }
 }

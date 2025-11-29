@@ -1,8 +1,13 @@
 use std::ops::Bound;
 
 use chrono::{DateTime, Utc};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use uuid::Uuid;
+
+#[derive(Deserialize)]
+pub struct RoomAvailabilityQuery {
+    pub period: (Bound<DateTime<Utc>>, Bound<DateTime<Utc>>),
+}
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]

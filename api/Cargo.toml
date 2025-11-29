@@ -11,6 +11,8 @@ config = { workspace = true }
 dotenvy = { workspace = true }
 domain = { workspace = true }
 infrastructure = { workspace = true }
+diesel = { workspace = true, features = ["chrono", "uuid"] }
+diesel-async = { workspace = true }
 bincode = "2.0.1"
 base64 = "0.22.1"
 chrono = { workspace = true }
@@ -19,3 +21,4 @@ uuid = { workspace = true }
 validators = { version = "0.25", features = ["uuid"] }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
+derive_more = { version = "2.0.1", features = ["display", "error"] }

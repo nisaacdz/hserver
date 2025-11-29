@@ -1,5 +1,7 @@
 use actix_web::web;
 
+mod dtos;
+mod errors;
 mod routes;
 
 use routes::find_room;
