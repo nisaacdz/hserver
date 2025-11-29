@@ -24,3 +24,4 @@ tracing-subscriber = { workspace = true }
 derive_more = { version = "2.0.1", features = ["display", "error"] }
 chacha20poly1305 = "0.10"
 rand = { workspace = true }
+argon2 = "0.5.3"

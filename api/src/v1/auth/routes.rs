@@ -3,7 +3,7 @@ use diesel::prelude::*;
 use diesel_async::RunQueryDsl;
 use infrastructure::db::DbPool;
 
-use crate::auth::{SessionUser, TokenEngine, generate_auth_cookie};
+use crate::auth::{SessionUser, TokenEngine, generate_auth_cookie, verify_password};
 use crate::v1::auth::dtos::{AuthUser, LoginRequest, LoginResponse};
 use crate::v1::auth::errors::AuthError;
 use infrastructure::models::User;
@@ -25,12 +25,12 @@ pub async fn login(
             _ => AuthError::InternalError,
         })?;
 
-    let stored_pass = user
+    let stored_hash = user
         .password_hash
         .as_deref()
         .ok_or(AuthError::InvalidCredentials)?;
 
-    if stored_pass != req.password {
+    if verify_password(&req.password, stored_hash).map_err(|_| AuthError::InternalError)? {
         return Err(AuthError::InvalidCredentials);
     }
 
