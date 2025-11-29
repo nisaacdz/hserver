@@ -35,7 +35,7 @@ pub async fn availability(
         .await
         .map_err(|e| {
             eprintln!("DB Error: {:?}", e);
-            RoomError::InternalError
+            RoomError::NotFound
         })?;
 
     let mut calendar_blocks = Vec::new();
