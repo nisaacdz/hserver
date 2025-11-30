@@ -51,6 +51,18 @@ diesel::table! {
 }
 
 diesel::table! {
+    otps (id) {
+        id -> Uuid,
+        user_id -> Uuid,
+        #[max_length = 24]
+        code -> Varchar,
+        expires_at -> Timestamptz,
+        used_at -> Nullable<Timestamptz>,
+        created_at -> Timestamptz,
+    }
+}
+
+diesel::table! {
     reports (id) {
         id -> Uuid,
         block_id -> Uuid,
@@ -112,6 +124,7 @@ diesel::joinable!(bookings -> blocks (block_id));
 diesel::joinable!(bookings -> users (guest_id));
 diesel::joinable!(maintenance -> blocks (block_id));
 diesel::joinable!(maintenance -> staff (assigner_id));
+diesel::joinable!(otps -> users (user_id));
 diesel::joinable!(room_classes_amenities -> amenities (amenity_id));
 diesel::joinable!(room_classes_amenities -> room_classes (room_class_id));
 diesel::joinable!(rooms -> room_classes (class_id));
@@ -122,6 +135,7 @@ diesel::allow_tables_to_appear_in_same_query!(
     blocks,
     bookings,
     maintenance,
+    otps,
     reports,
     room_classes,
     room_classes_amenities,
