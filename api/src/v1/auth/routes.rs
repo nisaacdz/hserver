@@ -3,11 +3,12 @@ use diesel::prelude::*;
 use diesel_async::RunQueryDsl;
 use infrastructure::db::DbPool;
 
-use crate::auth::{SessionUser, TokenEngine, generate_auth_cookie, verify_password};
-use crate::v1::auth::dtos::{AuthUser, LoginRequest, LoginResponse};
+use crate::auth::{SessionUser, TokenEngine, generate_auth_cookie, hash_password, verify_password};
+use crate::v1::auth::dtos::{AuthUser, LoginRequest, LoginResponse, OnboardRequest};
 use crate::v1::auth::errors::AuthError;
 use infrastructure::models::User;
-use infrastructure::schema::users::dsl as users_dsl;
+use infrastructure::schema::otps;
+use infrastructure::schema::users;
 
 pub async fn login(
     pool: web::Data<DbPool>,
@@ -16,8 +17,8 @@ pub async fn login(
 ) -> Result<HttpResponse, AuthError> {
     let mut conn = pool.get().await.map_err(|_| AuthError::InternalError)?;
 
-    let user: User = users_dsl::users
-        .filter(users_dsl::email.eq(&req.email))
+    let user: User = users::table
+        .filter(users::email.eq(&req.email))
         .first(&mut conn)
         .await
         .map_err(|e| match e {
@@ -51,4 +52,46 @@ pub async fn login(
     };
 
     Ok(HttpResponse::Ok().cookie(cookie).json(response))
+}
+
+pub async fn onboard(
+    pool: web::Data<DbPool>,
+    web::Query(req): web::Query<OnboardRequest>,
+) -> Result<HttpResponse, AuthError> {
+    let OnboardRequest {
+        user_id,
+        otp,
+        password,
+    } = req;
+
+    let mut conn = pool.get().await.map_err(|_| AuthError::InternalError)?;
+
+    let updated_count = diesel::update(
+        otps::table
+            .filter(otps::user_id.eq(user_id))
+            .filter(otps::code.eq(&otp))
+            .filter(otps::used_at.is_null())
+            .filter(otps::expires_at.gt(diesel::dsl::now)),
+    )
+    .set(otps::used_at.eq(diesel::dsl::now))
+    .execute(&mut conn)
+    .await
+    .map_err(|_| AuthError::InternalError)?;
+
+    if updated_count == 0 {
+        return Err(AuthError::InvalidCredentials);
+    }
+
+    let password_hash = hash_password(&password).map_err(|_| AuthError::InternalError)?;
+
+    let updated_user: User = diesel::update(users::table.filter(users::id.eq(user_id)))
+        .set(users::password_hash.eq(password_hash))
+        .get_result(&mut conn)
+        .await
+        .map_err(|_| AuthError::InternalError)?;
+
+    Ok(HttpResponse::Ok().json(AuthUser {
+        id: updated_user.id,
+        email: updated_user.email,
+    }))
 }

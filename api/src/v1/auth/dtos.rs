@@ -17,3 +17,11 @@ pub struct AuthUser {
     pub id: Uuid,
     pub email: String,
 }
+
+#[derive(Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub struct OnboardRequest {
+    pub user_id: Uuid,
+    pub otp: String,
+    pub password: String,
+}
