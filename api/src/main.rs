@@ -24,7 +24,7 @@ async fn main() -> std::io::Result<()> {
     };
 
     let pool = db::init_pool(&config.database).expect("Failed to initialize pg connection pool");
-    let token_engine = web::Data::new(TokenEngine::new(&config.security));
+    let token_engine = TokenEngine::new(&config.security);
 
     println!(
         "Starting server at {}:{}",

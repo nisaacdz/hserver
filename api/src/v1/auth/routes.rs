@@ -31,7 +31,7 @@ pub async fn login(
         .as_deref()
         .ok_or(AuthError::InvalidCredentials)?;
 
-    if verify_password(&req.password, stored_hash).map_err(|_| AuthError::InternalError)? {
+    if !verify_password(&req.password, stored_hash).map_err(|_| AuthError::InternalError)? {
         return Err(AuthError::InvalidCredentials);
     }
 
@@ -56,7 +56,7 @@ pub async fn login(
 
 pub async fn onboard(
     pool: web::Data<DbPool>,
-    web::Query(req): web::Query<OnboardRequest>,
+    web::Json(req): web::Json<OnboardRequest>,
 ) -> Result<HttpResponse, AuthError> {
     let OnboardRequest {
         user_id,
