@@ -29,7 +29,6 @@ pub async fn get_user(
         user: UserDetails {
             id: user.id,
             email: user.email,
-            username: None, // User model doesn't have username
         },
     };
 

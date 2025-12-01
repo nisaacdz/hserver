@@ -10,5 +10,4 @@ pub struct UserResponse {
 pub struct UserDetails {
     pub id: Uuid,
     pub email: String,
-    pub username: Option<String>,
 }
