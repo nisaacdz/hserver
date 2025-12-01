@@ -2,33 +2,36 @@ use std::ops::Bound;
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use utoipa::{IntoParams, ToSchema};
 use uuid::Uuid;
 
-#[derive(Deserialize)]
+#[derive(Deserialize, IntoParams)]
 pub struct RoomAvailabilityQuery {
     pub start: DateTime<Utc>,
     pub end: DateTime<Utc>,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct RoomAvailability {
     pub room_id: Uuid,
+    #[schema(value_type = Vec<String>, example = json!(["2023-01-01T00:00:00Z", "2023-01-02T00:00:00Z"]))]
     pub period: (Bound<DateTime<Utc>>, Bound<DateTime<Utc>>),
     pub blocks: Vec<CalendarBlock>,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct CalendarBlock {
     pub id: Uuid,
+    #[schema(value_type = Vec<String>)]
     pub period: (Bound<DateTime<Utc>>, Bound<DateTime<Utc>>),
     #[serde(rename = "type")]
     pub kind: BlockKind,
     pub label: Option<String>,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, ToSchema)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum BlockKind {
     Booking,
@@ -36,22 +39,23 @@ pub enum BlockKind {
     Unknown,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
 pub struct AmenityDto {
     pub id: Uuid,
     pub name: String,
     pub icon_key: Option<String>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
 pub struct RoomClassResponse {
     pub id: Uuid,
     pub name: String,
+    #[schema(value_type = String)]
     pub base_price: bigdecimal::BigDecimal,
     pub amenities: Vec<AmenityDto>,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, IntoParams)]
 #[serde(rename_all = "camelCase")]
 pub struct FindRoomQuery {
     pub start: DateTime<Utc>,
@@ -59,7 +63,7 @@ pub struct FindRoomQuery {
     pub class_id: Option<Uuid>,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct RoomSummary {
     pub id: Uuid,
@@ -67,19 +71,20 @@ pub struct RoomSummary {
     pub class_id: Uuid,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, ToSchema)]
 pub struct FindRoomResponse {
     pub rooms: Vec<RoomSummary>,
 }
-#[derive(Serialize)]
+#[derive(Serialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct RoomClassSummaryDto {
     pub id: Uuid,
     pub name: String,
+    #[schema(value_type = String)]
     pub base_price: bigdecimal::BigDecimal,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct RoomDetailsDto {
     pub id: Uuid,

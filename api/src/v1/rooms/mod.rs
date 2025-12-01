@@ -1,8 +1,8 @@
 use actix_web::web;
 
-mod dtos;
-mod errors;
-mod routes;
+pub mod dtos;
+pub mod errors;
+pub mod routes;
 
 use routes::{find_room, get_room_availability, get_room_classes, get_room_details};
 

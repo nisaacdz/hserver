@@ -10,6 +10,15 @@ use crate::v1::auth::errors::AuthError;
 use infrastructure::models::*;
 use infrastructure::schema::*;
 
+#[utoipa::path(
+    post,
+    path = "/api/v1/auth/login",
+    request_body = LoginRequest,
+    responses(
+        (status = 200, description = "Login successful", body = LoginResponse),
+        (status = 401, description = "Invalid credentials")
+    )
+)]
 pub async fn login(
     pool: web::Data<DbPool>,
     token_engine: web::Data<TokenEngine>,
@@ -62,6 +71,15 @@ pub async fn login(
     Ok(HttpResponse::Ok().cookie(cookie).json(response))
 }
 
+#[utoipa::path(
+    post,
+    path = "/api/v1/auth/onboard",
+    request_body = OnboardRequest,
+    responses(
+        (status = 200, description = "Onboarding successful", body = AuthUser),
+        (status = 401, description = "Invalid credentials or expired OTP")
+    )
+)]
 pub async fn onboard(
     pool: web::Data<DbPool>,
     web::Json(req): web::Json<OnboardRequest>,

@@ -9,6 +9,17 @@ use crate::v1::users::errors::UserError;
 use infrastructure::models::User;
 use infrastructure::schema::users::dsl as users_dsl;
 
+#[utoipa::path(
+    get,
+    path = "/api/v1/users/{id}",
+    params(
+        ("id" = Uuid, Path, description = "User ID")
+    ),
+    responses(
+        (status = 200, description = "User found", body = UserResponse),
+        (status = 404, description = "User not found")
+    )
+)]
 pub async fn get_user(
     pool: web::Data<DbPool>,
     path: web::Path<Uuid>,

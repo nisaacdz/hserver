@@ -1,8 +1,8 @@
 use actix_web::web;
 
-mod auth;
-mod rooms;
-mod users;
+pub mod auth;
+pub mod rooms;
+pub mod users;
 
 use crate::v1::{
     auth::configure_auth_routes, rooms::configure_rooms_routes, users::configure_users_routes,

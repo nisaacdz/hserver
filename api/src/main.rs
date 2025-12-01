@@ -1,10 +1,13 @@
 use actix_web::{App, HttpServer, web};
+use api::openapi::ApiDoc;
 use api::{auth::TokenEngine, v1::configure_v1_routes};
 use config::{Config, File};
 use domain::AppConfig;
 use infrastructure::db;
 use tracing_actix_web::TracingLogger;
 use tracing_subscriber::fmt::format::FmtSpan;
+use utoipa::OpenApi;
+use utoipa_swagger_ui::SwaggerUi;
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
@@ -51,7 +54,11 @@ async fn main() -> std::io::Result<()> {
             .app_data(web_app_config)
             .app_data(web_token_engine)
             .configure(|cfg| {
-                cfg.service(web::scope("/api").configure(configure_v1_routes));
+                cfg.service(web::scope("/api").configure(configure_v1_routes))
+                    .service(
+                        SwaggerUi::new("/swagger-ui/{_:.*}")
+                            .url("/api-docs/openapi.json", ApiDoc::openapi()),
+                    );
             })
     })
     .bind((config.server.host.as_str(), config.server.port))?

@@ -13,6 +13,19 @@ use domain::interval::{LowerBound, UpperBound};
 use infrastructure::models::*;
 use infrastructure::schema::*;
 
+#[utoipa::path(
+    get,
+    path = "/api/v1/rooms/{id}/availability",
+    params(
+        ("id" = Uuid, Path, description = "Room ID"),
+        RoomAvailabilityQuery
+    ),
+    responses(
+        (status = 200, description = "Room availability", body = RoomAvailability),
+        (status = 401, description = "Unauthorized"),
+        (status = 404, description = "Room not found")
+    )
+)]
 pub async fn get_room_availability(
     pool: web::Data<DbPool>,
     user: web::ReqData<Rc<SessionUser>>,
@@ -88,6 +101,17 @@ pub async fn get_room_availability(
     Ok(HttpResponse::Ok().json(response))
 }
 
+#[utoipa::path(
+    get,
+    path = "/api/v1/rooms/{id}",
+    params(
+        ("id" = Uuid, Path, description = "Room ID")
+    ),
+    responses(
+        (status = 200, description = "Room details", body = RoomDetailsDto),
+        (status = 404, description = "Room not found")
+    )
+)]
 pub async fn get_room_details(
     pool: web::Data<DbPool>,
     _user: web::ReqData<Rc<SessionUser>>,
@@ -121,6 +145,13 @@ pub async fn get_room_details(
     Ok(HttpResponse::Ok().json(response))
 }
 
+#[utoipa::path(
+    get,
+    path = "/api/v1/rooms/classes",
+    responses(
+        (status = 200, description = "List of room classes", body = Vec<RoomClassResponse>)
+    )
+)]
 pub async fn get_room_classes(pool: web::Data<DbPool>) -> Result<HttpResponse, RoomError> {
     let mut conn = pool.get().await.map_err(|_| RoomError::InternalError)?;
 
@@ -159,6 +190,17 @@ pub async fn get_room_classes(pool: web::Data<DbPool>) -> Result<HttpResponse, R
     Ok(HttpResponse::Ok().json(response))
 }
 
+#[utoipa::path(
+    get,
+    path = "/api/v1/rooms",
+    params(
+        FindRoomQuery
+    ),
+    responses(
+        (status = 200, description = "List of available rooms", body = FindRoomResponse),
+        (status = 400, description = "Invalid date range")
+    )
+)]
 pub async fn find_room(
     pool: web::Data<DbPool>,
     web::Query(query): web::Query<FindRoomQuery>,
