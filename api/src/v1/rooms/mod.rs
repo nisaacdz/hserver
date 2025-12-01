@@ -128,7 +128,9 @@ mod tests {
 
         let start = chrono::Utc::now();
         let end = start + chrono::Duration::days(1);
-        let query = format!("start={}&end={}", start.to_rfc3339(), end.to_rfc3339());
+        let start_str = start.to_rfc3339().replace("+", "%2B");
+        let end_str = end.to_rfc3339().replace("+", "%2B");
+        let query = format!("start={}&end={}", start_str, end_str);
 
         let req = test::TestRequest::get()
             .uri(&format!("/rooms/find?{}", query))
@@ -193,7 +195,9 @@ mod tests {
 
         let start = chrono::Utc::now();
         let end = start + chrono::Duration::days(1);
-        let query = format!("start={}&end={}", start.to_rfc3339(), end.to_rfc3339());
+        let start_str = start.to_rfc3339().replace("+", "%2B");
+        let end_str = end.to_rfc3339().replace("+", "%2B");
+        let query = format!("start={}&end={}", start_str, end_str);
 
         let req = test::TestRequest::get()
             .uri(&format!("/rooms/{}/availability?{}", room_id, query))
