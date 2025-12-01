@@ -71,3 +71,19 @@ pub struct RoomSummary {
 pub struct FindRoomResponse {
     pub rooms: Vec<RoomSummary>,
 }
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RoomClassSummaryDto {
+    pub id: Uuid,
+    pub name: String,
+    pub base_price: bigdecimal::BigDecimal,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RoomDetailsDto {
+    pub id: Uuid,
+    pub label: String,
+    pub class_id: Uuid,
+    pub class: RoomClassSummaryDto,
+}

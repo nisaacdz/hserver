@@ -13,7 +13,7 @@ use domain::interval::{LowerBound, UpperBound};
 use infrastructure::models::*;
 use infrastructure::schema::*;
 
-pub async fn availability(
+pub async fn get_room_availability(
     pool: web::Data<DbPool>,
     user: web::ReqData<Rc<SessionUser>>,
     path: web::Path<Uuid>,
@@ -88,13 +88,37 @@ pub async fn availability(
     Ok(HttpResponse::Ok().json(response))
 }
 
-pub async fn details(
-    _pool: web::Data<DbPool>,
+pub async fn get_room_details(
+    pool: web::Data<DbPool>,
     _user: web::ReqData<Rc<SessionUser>>,
-    _path: web::Path<Uuid>,
-    _query: web::Query<RoomAvailabilityQuery>,
+    path: web::Path<Uuid>,
 ) -> Result<HttpResponse, RoomError> {
-    Ok(HttpResponse::Ok().json(()))
+    let room_id = path.into_inner();
+    let mut conn = pool.get().await.map_err(|_| RoomError::InternalError)?;
+
+    let (room, room_class): (Room, RoomClass) = rooms::table
+        .find(room_id)
+        .inner_join(room_classes::table)
+        .select((Room::as_select(), RoomClass::as_select()))
+        .first(&mut conn)
+        .await
+        .map_err(|e| match e {
+            diesel::result::Error::NotFound => RoomError::NotFound,
+            _ => RoomError::InternalError,
+        })?;
+
+    let response = RoomDetailsDto {
+        id: room.id,
+        label: room.label,
+        class_id: room.class_id,
+        class: RoomClassSummaryDto {
+            id: room_class.id,
+            name: room_class.name,
+            base_price: room_class.base_price,
+        },
+    };
+
+    Ok(HttpResponse::Ok().json(response))
 }
 
 pub async fn get_room_classes(pool: web::Data<DbPool>) -> Result<HttpResponse, RoomError> {
