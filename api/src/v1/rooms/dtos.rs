@@ -6,7 +6,8 @@ use uuid::Uuid;
 
 #[derive(Deserialize)]
 pub struct RoomAvailabilityQuery {
-    pub period: (Bound<DateTime<Utc>>, Bound<DateTime<Utc>>),
+    pub start: DateTime<Utc>,
+    pub end: DateTime<Utc>,
 }
 
 #[derive(Serialize)]
@@ -33,4 +34,40 @@ pub enum BlockKind {
     Booking,
     Maintenance,
     Unknown,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct AmenityDto {
+    pub id: Uuid,
+    pub name: String,
+    pub icon_key: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct RoomClassResponse {
+    pub id: Uuid,
+    pub name: String,
+    pub base_price: bigdecimal::BigDecimal,
+    pub amenities: Vec<AmenityDto>,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FindRoomQuery {
+    pub start: DateTime<Utc>,
+    pub end: DateTime<Utc>,
+    pub class_id: Option<Uuid>,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RoomSummary {
+    pub id: Uuid,
+    pub label: String,
+    pub class_id: Uuid,
+}
+
+#[derive(Serialize)]
+pub struct FindRoomResponse {
+    pub rooms: Vec<RoomSummary>,
 }

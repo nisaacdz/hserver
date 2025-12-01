@@ -2,13 +2,13 @@ use actix_web::{HttpResponse, web};
 use diesel::prelude::*;
 use diesel_async::RunQueryDsl;
 use infrastructure::db::DbPool;
+use uuid::Uuid;
 
 use crate::auth::{SessionUser, TokenEngine, generate_auth_cookie, hash_password, verify_password};
 use crate::v1::auth::dtos::{AuthUser, LoginRequest, LoginResponse, OnboardRequest};
 use crate::v1::auth::errors::AuthError;
-use infrastructure::models::User;
-use infrastructure::schema::otps;
-use infrastructure::schema::users;
+use infrastructure::models::*;
+use infrastructure::schema::*;
 
 pub async fn login(
     pool: web::Data<DbPool>,
@@ -35,9 +35,17 @@ pub async fn login(
         return Err(AuthError::InvalidCredentials);
     }
 
+    let staff_id: Option<Uuid> = staff::table
+        .filter(staff::user_id.eq(user.id))
+        .select(staff::id)
+        .first::<Uuid>(&mut conn)
+        .await
+        .optional()
+        .map_err(|_| AuthError::InternalError)?;
+
     let session_user = SessionUser {
         id: user.id,
-        staff_id: None,
+        staff_id,
         email: user.email.clone(),
     };
 

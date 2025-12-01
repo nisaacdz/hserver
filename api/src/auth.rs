@@ -2,7 +2,7 @@ use actix_web::{
     Error, HttpMessage,
     cookie::{Cookie, SameSite},
     dev::{Service, ServiceRequest, ServiceResponse, Transform},
-    error::{ErrorUnauthorized, InternalError},
+    error::{ErrorInternalServerError, ErrorUnauthorized, InternalError},
     http::StatusCode,
 };
 use argon2::{
@@ -91,8 +91,6 @@ impl TokenEngine {
         }
     }
 
-    /// Serializes and Encrypts user data into a Base64 string.
-    /// Optimized for minimum allocations.
     pub fn create_token(&self, user: SessionUser) -> Result<String, Error> {
         let session = AuthSession {
             exp: Utc::now().timestamp() + self.duration,
@@ -101,7 +99,7 @@ impl TokenEngine {
 
         let config = config::standard();
         let payload_bytes = bincode::encode_to_vec(session, config)
-            .map_err(|_| ErrorUnauthorized("Serialization error"))?;
+            .map_err(|_| ErrorInternalServerError("Serialization error"))?;
 
         let mut nonce = XNonce::default();
         rand::rng().fill_bytes(&mut nonce);
@@ -109,7 +107,7 @@ impl TokenEngine {
         let ciphertext = self
             .cipher
             .encrypt(&nonce, payload_bytes.as_ref())
-            .map_err(|_| ErrorUnauthorized("Encryption failed"))?;
+            .map_err(|_| ErrorInternalServerError("Encryption failed"))?;
 
         let mut final_buffer = Vec::with_capacity(nonce.len() + ciphertext.len());
         final_buffer.extend_from_slice(&nonce);
@@ -117,7 +115,6 @@ impl TokenEngine {
         Ok(BASE64.encode(final_buffer))
     }
 
-    /// Decrypts a Base64 string back into SessionUser
     pub fn verify_token(&self, token_str: &str) -> Result<SessionUser, Error> {
         let encrypted_data = BASE64
             .decode(token_str)

@@ -1,16 +1,17 @@
 use actix_web::{HttpResponse, web};
-use diesel::prelude::*;
+use diesel::{dsl::*, prelude::*};
 use diesel_async::RunQueryDsl;
 use infrastructure::db::DbPool;
+use std::ops::Bound;
 use std::rc::Rc;
 use uuid::Uuid;
 
 use crate::auth::SessionUser;
-use crate::v1::rooms::dtos::{BlockKind, CalendarBlock, RoomAvailability, RoomAvailabilityQuery};
-use crate::v1::rooms::errors::RoomError;
+use crate::v1::rooms::dtos::*;
+use crate::v1::rooms::errors::*;
 use domain::interval::{LowerBound, UpperBound};
-use infrastructure::models::{Block, Booking, Maintenance};
-use infrastructure::schema::{blocks, bookings, maintenance};
+use infrastructure::models::*;
+use infrastructure::schema::*;
 
 pub async fn availability(
     pool: web::Data<DbPool>,
@@ -22,13 +23,15 @@ pub async fn availability(
         return Err(RoomError::Unauthorized);
     }
 
+    let period = (Bound::Included(query.start), Bound::Excluded(query.end));
+
     let room_id = path.into_inner();
 
     let mut conn = pool.get().await.map_err(|_| RoomError::InternalError)?;
 
     let data: Vec<(Block, Option<Booking>, Option<Maintenance>)> = blocks::table
         .filter(blocks::room_id.eq(room_id))
-        .filter(blocks::interval.overlaps_with(query.period))
+        .filter(blocks::interval.overlaps_with(period))
         .left_join(bookings::table)
         .left_join(maintenance::table)
         .order(blocks::interval.asc())
@@ -60,16 +63,16 @@ pub async fn availability(
         .collect::<Vec<_>>();
 
     let period = if calendar_blocks.is_empty() {
-        query.period
+        period
     } else {
         (
             std::cmp::min(
-                LowerBound(query.period.0),
+                LowerBound(period.0),
                 LowerBound(calendar_blocks[0].period.0),
             )
             .0,
             std::cmp::max(
-                UpperBound(query.period.1),
+                UpperBound(period.1),
                 UpperBound(calendar_blocks.last().unwrap().period.1),
             )
             .0,
@@ -92,4 +95,86 @@ pub async fn details(
     _query: web::Query<RoomAvailabilityQuery>,
 ) -> Result<HttpResponse, RoomError> {
     Ok(HttpResponse::Ok().json(()))
+}
+
+pub async fn get_room_classes(pool: web::Data<DbPool>) -> Result<HttpResponse, RoomError> {
+    let mut conn = pool.get().await.map_err(|_| RoomError::InternalError)?;
+
+    let classes: Vec<RoomClass> = room_classes::table
+        .load::<RoomClass>(&mut conn)
+        .await
+        .map_err(|_| RoomError::InternalError)?;
+
+    let amenities_data: Vec<(RoomClassAmenity, Amenity)> = RoomClassAmenity::belonging_to(&classes)
+        .inner_join(amenities::table)
+        .select((RoomClassAmenity::as_select(), Amenity::as_select()))
+        .load::<(RoomClassAmenity, Amenity)>(&mut conn)
+        .await
+        .map_err(|_| RoomError::InternalError)?;
+
+    let amenities_grouped = amenities_data.grouped_by(&classes);
+
+    let response: Vec<RoomClassResponse> = classes
+        .into_iter()
+        .zip(amenities_grouped)
+        .map(|(room_class, class_amenities)| RoomClassResponse {
+            id: room_class.id,
+            name: room_class.name,
+            base_price: room_class.base_price,
+            amenities: class_amenities
+                .into_iter()
+                .map(|(_, amenity)| AmenityDto {
+                    id: amenity.id,
+                    name: amenity.name,
+                    icon_key: amenity.icon_key,
+                })
+                .collect(),
+        })
+        .collect();
+
+    Ok(HttpResponse::Ok().json(response))
+}
+
+pub async fn find_room(
+    pool: web::Data<DbPool>,
+    web::Query(query): web::Query<FindRoomQuery>,
+) -> Result<HttpResponse, SearchError> {
+    if query.start >= query.end {
+        return Err(SearchError::InvalidDateRange);
+    }
+
+    let mut conn = pool.get().await.map_err(|_| SearchError::InternalError)?;
+
+    let search_range = (Bound::Included(query.start), Bound::Excluded(query.end));
+
+    let mut db_query = rooms::table.into_boxed();
+
+    if let Some(cid) = query.class_id {
+        db_query = db_query.filter(rooms::class_id.eq(cid));
+    }
+
+    db_query = db_query.filter(not(exists(
+        blocks::table
+            .filter(blocks::room_id.eq(rooms::id))
+            .filter(blocks::interval.overlaps_with(search_range)),
+    )));
+
+    let available_rooms: Vec<Room> = db_query
+        .select(Room::as_select())
+        .load(&mut conn)
+        .await
+        .map_err(|_| SearchError::InternalError)?;
+
+    let response_rooms: Vec<RoomSummary> = available_rooms
+        .into_iter()
+        .map(|r| RoomSummary {
+            id: r.id,
+            label: r.label,
+            class_id: r.class_id,
+        })
+        .collect();
+
+    Ok(HttpResponse::Ok().json(FindRoomResponse {
+        rooms: response_rooms,
+    }))
 }

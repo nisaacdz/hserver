@@ -24,6 +24,7 @@ futures-util = "0.3"
 tracing = "0.1.43"
 tracing-subscriber = "0.3.22"
 rand = "0.9.2"
+bigdecimal = "0.4.9"
 
 domain = { path = "domain" }
 infrastructure = { path = "infrastructure" }
