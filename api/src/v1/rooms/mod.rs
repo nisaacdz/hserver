@@ -4,7 +4,7 @@ pub mod dtos;
 pub mod errors;
 pub mod routes;
 
-use routes::{find_room, get_room_availability, get_room_classes, get_room_details};
+use routes::{find_room, get_room_availability, get_room_classes, get_room_details, list_rooms};
 
 use crate::auth::AuthMiddleware;
 
@@ -12,6 +12,7 @@ pub fn configure_rooms_routes(cfg: &mut web::ServiceConfig) {
     cfg.service(
         web::scope("/rooms")
             .route("/find", web::get().to(find_room))
+            .route("/list", web::get().to(list_rooms).wrap(AuthMiddleware))
             .route("/classes", web::get().to(get_room_classes))
             .route(
                 "/{id}",
@@ -205,5 +206,54 @@ mod tests {
             .to_request();
         let resp = test::call_service(&app, req).await;
         assert!(resp.status().is_success());
+    }
+
+    #[actix_web::test]
+    async fn test_list_rooms() {
+        let config = get_test_config();
+        let pool = get_test_pool(&config).await;
+        let token_engine = TokenEngine::new(&config.security);
+
+        let (room_id, _) = setup_test_data(&pool).await;
+
+        let app = test::init_service(
+            App::new()
+                .app_data(web::Data::new(pool.clone()))
+                .app_data(web::Data::new(token_engine.clone()))
+                .configure(configure_rooms_routes),
+        )
+        .await;
+
+        let user = SessionUser {
+            id: Uuid::new_v4(),
+            staff_id: Some(Uuid::new_v4()),
+            email: "staff@test.com".to_string(),
+        };
+        let cookie = generate_auth_cookie(&token_engine, user).unwrap();
+
+        let req = test::TestRequest::get()
+            .uri("/rooms/list?page=1&per_page=10")
+            .cookie(cookie)
+            .to_request();
+        let resp = test::call_service(&app, req).await;
+        assert!(resp.status().is_success());
+
+        // Test search
+        let req_search = test::TestRequest::get()
+            .uri("/rooms/list?search=Test&page=1&per_page=10")
+            .cookie(
+                generate_auth_cookie(
+                    &token_engine,
+                    SessionUser {
+                        id: Uuid::new_v4(),
+                        staff_id: Some(Uuid::new_v4()),
+                        email: "staff@test.com".to_string(),
+                    },
+                )
+                .unwrap(),
+            )
+            .to_request();
+        let resp_search = test::call_service(&app, req_search).await;
+        assert!(resp_search.status().is_success());
     }
 }

@@ -92,3 +92,28 @@ pub struct RoomDetailsDto {
     pub class_id: Uuid,
     pub class: RoomClassSummaryDto,
 }
+
+#[derive(Deserialize, IntoParams)]
+#[serde(rename_all = "camelCase")]
+pub struct RoomListQuery {
+    pub page: Option<i64>,
+    pub per_page: Option<i64>,
+    pub search: Option<String>,
+}
+
+#[derive(Serialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct RoomDto {
+    pub id: Uuid,
+    pub label: String,
+    pub class_id: Uuid,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Serialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct RoomListResponse {
+    pub rooms: Vec<RoomDto>,
+    pub total_rooms: i64,
+    pub page: i64,
+}

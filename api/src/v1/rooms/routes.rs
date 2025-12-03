@@ -244,3 +244,68 @@ pub async fn find_room(
         rooms: response_rooms,
     }))
 }
+
+#[utoipa::path(
+    get,
+    path = "/api/v1/rooms/list",
+    params(
+        RoomListQuery
+    ),
+    responses(
+        (status = 200, description = "List of rooms", body = RoomListResponse),
+        (status = 401, description = "Unauthorized")
+    )
+)]
+pub async fn list_rooms(
+    pool: web::Data<DbPool>,
+    user: web::ReqData<Rc<SessionUser>>,
+    web::Query(query): web::Query<RoomListQuery>,
+) -> Result<HttpResponse, RoomError> {
+    if user.staff_id.is_none() {
+        return Err(RoomError::Unauthorized);
+    }
+
+    let mut conn = pool.get().await.map_err(|_| RoomError::InternalError)?;
+
+    let page = query.page.unwrap_or(1);
+    let per_page = query.per_page.unwrap_or(10);
+    let offset = (page - 1) * per_page;
+
+    let mut count_query = rooms::table.into_boxed();
+    let mut list_query = rooms::table.into_boxed();
+
+    if let Some(search) = &query.search {
+        let pattern = format!("%{}%", search);
+        count_query = count_query.filter(rooms::label.ilike(pattern.clone()));
+        list_query = list_query.filter(rooms::label.ilike(pattern));
+    }
+
+    let total_rooms: i64 = count_query
+        .count()
+        .get_result(&mut conn)
+        .await
+        .map_err(|_| RoomError::InternalError)?;
+
+    let rooms_list: Vec<Room> = list_query
+        .limit(per_page)
+        .offset(offset)
+        .load::<Room>(&mut conn)
+        .await
+        .map_err(|_| RoomError::InternalError)?;
+
+    let response_rooms: Vec<RoomDto> = rooms_list
+        .into_iter()
+        .map(|r| RoomDto {
+            id: r.id,
+            label: r.label,
+            class_id: r.class_id,
+            created_at: r.created_at,
+        })
+        .collect();
+
+    Ok(HttpResponse::Ok().json(RoomListResponse {
+        rooms: response_rooms,
+        total_rooms,
+        page,
+    }))
+}
