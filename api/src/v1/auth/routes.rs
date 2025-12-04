@@ -1,21 +1,18 @@
 use actix_web::{HttpResponse, web};
-use diesel::prelude::*;
-use diesel_async::RunQueryDsl;
-use infrastructure::db::DbPool;
-use uuid::Uuid;
+use infra::db::DbPool;
 
-use crate::auth::{SessionUser, TokenEngine, generate_auth_cookie, hash_password, verify_password};
-use crate::v1::auth::dtos::{AuthUser, LoginRequest, LoginResponse, OnboardRequest};
-use crate::v1::auth::errors::AuthError;
-use infrastructure::models::*;
-use infrastructure::schema::*;
+use crate::auth::{TokenEngine, generate_auth_cookie};
+use app::auth::login::LoginRequest;
+use app::auth::onboard::OnboardRequest;
+use app::auth::{AuthError, SessionUser};
+use infra::domains::auth;
 
 #[utoipa::path(
     post,
     path = "/api/v1/auth/login",
     request_body = LoginRequest,
     responses(
-        (status = 200, description = "Login successful", body = LoginResponse),
+        (status = 200, description = "Login successful", body = SessionUser),
         (status = 401, description = "Invalid credentials")
     )
 )]
@@ -24,51 +21,16 @@ pub async fn login(
     token_engine: web::Data<TokenEngine>,
     web::Json(req): web::Json<LoginRequest>,
 ) -> Result<HttpResponse, AuthError> {
-    let mut conn = pool.get().await.map_err(|_| AuthError::InternalError)?;
-
-    let user: User = users::table
-        .filter(users::email.eq(&req.email))
-        .first(&mut conn)
-        .await
-        .map_err(|e| match e {
-            diesel::result::Error::NotFound => AuthError::InvalidCredentials,
-            _ => AuthError::InternalError,
-        })?;
-
-    let stored_hash = user
-        .password_hash
-        .as_deref()
-        .ok_or(AuthError::InvalidCredentials)?;
-
-    if !verify_password(&req.password, stored_hash).map_err(|_| AuthError::InternalError)? {
-        return Err(AuthError::InvalidCredentials);
-    }
-
-    let staff_id: Option<Uuid> = staff::table
-        .filter(staff::user_id.eq(user.id))
-        .select(staff::id)
-        .first::<Uuid>(&mut conn)
-        .await
-        .optional()
-        .map_err(|_| AuthError::InternalError)?;
-
-    let session_user = SessionUser {
-        id: user.id,
-        staff_id,
-        email: user.email.clone(),
-    };
+    let user = auth::login(&pool, req).await?;
 
     let cookie =
-        generate_auth_cookie(&token_engine, session_user).map_err(|_| AuthError::InternalError)?;
+        generate_auth_cookie(&token_engine, user.clone()).map_err(|_| AuthError::InternalError)?;
 
-    let response = LoginResponse {
-        user: AuthUser {
-            id: user.id,
-            email: user.email,
-        },
-    };
-
-    Ok(HttpResponse::Ok().cookie(cookie).json(response))
+    // Return simple JSON with id and email as requested
+    Ok(HttpResponse::Ok().cookie(cookie).json(serde_json::json!({
+        "id": user.id,
+        "email": user.email
+    })))
 }
 
 #[utoipa::path(
@@ -76,48 +38,22 @@ pub async fn login(
     path = "/api/v1/auth/onboard",
     request_body = OnboardRequest,
     responses(
-        (status = 200, description = "Onboarding successful", body = AuthUser),
+        (status = 200, description = "Onboarding successful", body = SessionUser),
         (status = 401, description = "Invalid credentials or expired OTP")
     )
 )]
 pub async fn onboard(
     pool: web::Data<DbPool>,
+    token_engine: web::Data<TokenEngine>,
     web::Json(req): web::Json<OnboardRequest>,
 ) -> Result<HttpResponse, AuthError> {
-    let OnboardRequest {
-        user_id,
-        otp,
-        password,
-    } = req;
+    let user = auth::onboard(&pool, req).await?;
 
-    let mut conn = pool.get().await.map_err(|_| AuthError::InternalError)?;
+    let cookie =
+        generate_auth_cookie(&token_engine, user.clone()).map_err(|_| AuthError::InternalError)?;
 
-    let updated_count = diesel::update(
-        otps::table
-            .filter(otps::user_id.eq(user_id))
-            .filter(otps::code.eq(&otp))
-            .filter(otps::used_at.is_null())
-            .filter(otps::expires_at.gt(diesel::dsl::now)),
-    )
-    .set(otps::used_at.eq(diesel::dsl::now))
-    .execute(&mut conn)
-    .await
-    .map_err(|_| AuthError::InternalError)?;
-
-    if updated_count == 0 {
-        return Err(AuthError::InvalidCredentials);
-    }
-
-    let password_hash = hash_password(&password).map_err(|_| AuthError::InternalError)?;
-
-    let updated_user: User = diesel::update(users::table.filter(users::id.eq(user_id)))
-        .set(users::password_hash.eq(password_hash))
-        .get_result(&mut conn)
-        .await
-        .map_err(|_| AuthError::InternalError)?;
-
-    Ok(HttpResponse::Ok().json(AuthUser {
-        id: updated_user.id,
-        email: updated_user.email,
-    }))
+    Ok(HttpResponse::Ok().cookie(cookie).json(serde_json::json!({
+        "id": user.id,
+        "email": user.email
+    })))
 }

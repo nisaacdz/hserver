@@ -1,0 +1,14 @@
+[package]
+name = "migrator"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+dotenvy = { workspace = true }
+diesel = { workspace = true, features = ["postgres"] }
+diesel-async = { workspace = true, features = ["postgres", "deadpool", "migrations"] }
+diesel_migrations = { version = "2.3.0", features = ["postgres"] }
+tokio = { workspace = true, features = ["full"] }
+config = { workspace = true }
+app = { workspace = true }
+infra = { workspace = true }

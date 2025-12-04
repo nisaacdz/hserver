@@ -1,0 +1,15 @@
+[package]
+name = "app"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+serde = { workspace = true, features = ["derive"] }
+uuid = { workspace = true, features = ["serde", "v4"] }
+chrono = { workspace = true, features = ["serde"] }
+actix-web = { workspace = true }
+bincode = "2.0.1"
+bigdecimal = { workspace = true, features = ["serde"] }
+utoipa = { version = "5.4.0", features = ["actix_extras", "chrono", "uuid"] }
+argon2 = "0.5.3"
+rand = { workspace = true }

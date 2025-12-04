@@ -1,7 +1,6 @@
 use actix_web::web;
 
 pub mod dtos;
-pub mod errors;
 pub mod routes;
 
 use routes::{find_room, get_room_availability, get_room_classes, get_room_details, list_rooms};
@@ -30,16 +29,16 @@ mod tests {
     use super::*;
     use crate::auth::{SessionUser, TokenEngine, generate_auth_cookie};
     use actix_web::{App, test, web};
+    use app::AppSettings;
     use bigdecimal::BigDecimal;
     use config::{Config, File};
     use diesel_async::RunQueryDsl;
-    use domain::AppConfig;
-    use infrastructure::db;
-    use infrastructure::models::{NewRoom, NewRoomClass};
-    use infrastructure::schema::{room_classes, rooms};
+    use infra::db;
+    use infra::models::{NewRoom, NewRoomClass};
+    use infra::schema::{room_classes, rooms};
     use uuid::Uuid;
 
-    fn get_test_config() -> AppConfig {
+    fn get_test_config() -> AppSettings {
         dotenvy::dotenv().ok();
         let run_mode = std::env::var("RUN_MODE").unwrap_or("development".to_string());
 
@@ -55,7 +54,7 @@ mod tests {
             .expect("Failed to deserialize configuration")
     }
 
-    async fn get_test_pool(config: &AppConfig) -> db::DbPool {
+    async fn get_test_pool(config: &AppSettings) -> db::DbPool {
         db::init_pool(&config.database).expect("Failed to init pool")
     }
 
@@ -214,7 +213,7 @@ mod tests {
         let pool = get_test_pool(&config).await;
         let token_engine = TokenEngine::new(&config.security);
 
-        let (room_id, _) = setup_test_data(&pool).await;
+        let (_room_id, _class_id) = setup_test_data(&pool).await;
 
         let app = test::init_service(
             App::new()

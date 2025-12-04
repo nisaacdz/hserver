@@ -32,7 +32,7 @@ APP__SERVER__PORT=8081
 
 3.  **Run Migrations** (Future):
     ```bash
-    cargo run -p migration_runner
+    cargo run -p migrator
     ```
 
 ## Workspace Structure
@@ -40,4 +40,4 @@ APP__SERVER__PORT=8081
 -   `api`: The HTTP layer (Actix Web).
 -   `core`: Domain logic, types, and configuration structs.
 -   `infrastructure`: Database interaction (Diesel Async).
--   `migration_runner`: Standalone binary for database operations.
+-   `migrator`: Standalone binary for database operations.

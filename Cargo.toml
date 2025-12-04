@@ -1,9 +1,14 @@
+[package]
+name = "hserver"
+version = "0.1.0"
+edition = "2021"
+
 [workspace]
 members = [
-    "domain",
-    "infrastructure",
+    "app",
+    "infra",
     "api",
-    "migration_runner"
+    "migrator"
 ]
 resolver = "2"
 
@@ -19,12 +24,21 @@ rustls = "0.23"
 serde = "1.0"
 serde_json = "1"
 tokio = "1"
-uuid = "1.0"
+uuid = "1.19.0"
 futures-util = "0.3"
 tracing = "0.1.43"
 tracing-subscriber = "0.3.22"
 rand = "0.9.2"
 bigdecimal = "0.4.9"
+app = { path = "app" }
+infra = { path = "infra" }
 
-domain = { path = "domain" }
-infrastructure = { path = "infrastructure" }
+[dependencies]
+api = { path = "api" }
+app = { path = "app" }
+infra = { path = "infra" }
+actix-web = { workspace = true }
+dotenvy = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+tokio = { workspace = true, features = ["full"] }

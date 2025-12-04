@@ -5,10 +5,8 @@ use actix_web::{
     error::{ErrorInternalServerError, ErrorUnauthorized, InternalError},
     http::StatusCode,
 };
-use argon2::{
-    Argon2,
-    password_hash::{PasswordHash, PasswordHasher, PasswordVerifier, SaltString, rand_core::OsRng},
-};
+use app::SecuritySettings;
+pub use app::auth::SessionUser;
 use base64::{Engine as _, engine::general_purpose::STANDARD as BASE64};
 use bincode::{Decode, Encode, config};
 use chacha20poly1305::{
@@ -16,52 +14,12 @@ use chacha20poly1305::{
     aead::{Aead, KeyInit},
 };
 use chrono::Utc;
-use domain::SecurityConfig;
 use futures_util::{
     future::{Ready, ok},
     task::{Context, Poll},
 };
 use rand::RngCore;
 use std::{future::Future, pin::Pin, rc::Rc};
-use uuid::Uuid;
-
-#[derive(Clone, Debug, PartialEq)]
-pub struct SessionUser {
-    pub id: Uuid,
-    pub staff_id: Option<Uuid>,
-    pub email: String,
-}
-
-// Bincode implementation for efficient binary serialization
-bincode::impl_borrow_decode! {SessionUser}
-
-impl Encode for SessionUser {
-    fn encode<E: bincode::enc::Encoder>(
-        &self,
-        encoder: &mut E,
-    ) -> Result<(), bincode::error::EncodeError> {
-        bincode::Encode::encode(&self.id.as_bytes(), encoder)?;
-        bincode::Encode::encode(&self.staff_id.as_ref().map(|id| id.as_bytes()), encoder)?;
-        bincode::Encode::encode(&self.email, encoder)?;
-        Ok(())
-    }
-}
-
-impl<Ctx> Decode<Ctx> for SessionUser {
-    fn decode<D: bincode::de::Decoder>(
-        decoder: &mut D,
-    ) -> Result<Self, bincode::error::DecodeError> {
-        let id = Uuid::from_bytes(bincode::Decode::decode(decoder)?);
-        let staff_id = Option::<[u8; 16]>::decode(decoder)?.map(Uuid::from_bytes);
-        let email = bincode::Decode::decode(decoder)?;
-
-        Ok(SessionUser {
-            id,
-            staff_id,
-            email,
-        })
-    }
-}
 
 /// Internal wrapper to include expiration in the encrypted payload
 #[derive(Encode, Decode, Debug)]
@@ -77,7 +35,7 @@ pub struct TokenEngine {
 }
 
 impl TokenEngine {
-    pub fn new(config: &SecurityConfig) -> Self {
+    pub fn new(config: &SecuritySettings) -> Self {
         let key_bytes = config.key.as_bytes();
         if key_bytes.len() != 32 {
             panic!("Security key must be exactly 32 bytes long for XChaCha20Poly1305");
@@ -156,30 +114,6 @@ pub fn generate_auth_cookie(
         .finish())
 }
 
-pub fn hash_password(plain_password: &str) -> Result<String, String> {
-    let salt = SaltString::generate(&mut OsRng);
-
-    let argon2 = Argon2::default();
-    let password_hash = argon2
-        .hash_password(plain_password.as_bytes(), &salt)
-        .map_err(|e| e.to_string())?;
-
-    Ok(password_hash.to_string())
-}
-
-/// Used during Login: Verifies a plain password against a stored Argon2 hash.
-pub fn verify_password(plain_password: &str, stored_hash: &str) -> Result<bool, String> {
-    let parsed_hash = PasswordHash::new(stored_hash).map_err(|e| e.to_string())?;
-
-    let argon2 = Argon2::default();
-
-    let is_valid = argon2
-        .verify_password(plain_password.as_bytes(), &parsed_hash)
-        .is_ok();
-
-    Ok(is_valid)
-}
-
 pub struct AuthMiddleware;
 
 impl<S, B> Transform<S, ServiceRequest> for AuthMiddleware
@@ -252,6 +186,7 @@ mod tests {
     use super::*;
     use actix_web::test::{self, TestRequest};
     use actix_web::web::Data;
+    use uuid::Uuid;
 
     fn default_user() -> SessionUser {
         SessionUser {
@@ -262,7 +197,7 @@ mod tests {
     }
 
     fn get_test_service() -> TokenEngine {
-        let config = SecurityConfig {
+        let config = SecuritySettings {
             key: "01234567890123456789012345678901".to_string(),
             session_duration: 3600,
         };
@@ -300,7 +235,7 @@ mod tests {
 
     #[test]
     fn test_expired_token() {
-        let config = SecurityConfig {
+        let config = SecuritySettings {
             key: "01234567890123456789012345678901".to_string(),
             session_duration: 0,
         };

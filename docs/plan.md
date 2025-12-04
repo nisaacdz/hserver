@@ -21,7 +21,7 @@ hotel_monolith/
 ├── infrastructure/         # Database Interaction (Diesel Async)
 │   ├── Cargo.toml
 │   └── src/lib.rs
-└── migration_runner/       # Standalone binary for DB ops
+└── migrator/       # Standalone binary for DB ops
     ├── Cargo.toml
     └── src/main.rs
 ```
@@ -30,7 +30,7 @@ hotel_monolith/
 
 ```toml
 [workspace]
-members = ["api", "core", "infrastructure", "migration_runner"]
+members = ["api", "core", "infrastructure", "migrator"]
 resolver = "2"
 ```
 

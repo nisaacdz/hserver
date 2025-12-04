@@ -1,4 +1,7 @@
 use crate::v1;
+use app::auth::SessionUser;
+use app::auth::login::LoginRequest;
+use app::auth::onboard::OnboardRequest;
 use utoipa::OpenApi;
 
 #[derive(OpenApi)]
@@ -8,7 +11,7 @@ use utoipa::OpenApi;
         v1::auth::routes::login,
         v1::auth::routes::onboard,
         // Users
-        v1::users::get::get_user,
+        v1::users::routes::get_user,
         // Rooms
         v1::rooms::routes::get_room_availability,
         v1::rooms::routes::get_room_details,
@@ -17,12 +20,9 @@ use utoipa::OpenApi;
     ),
     components(
         schemas(
-            v1::auth::dtos::LoginRequest,
-            v1::auth::dtos::LoginResponse,
-            v1::auth::dtos::AuthUser,
-            v1::auth::dtos::OnboardRequest,
-            v1::users::dtos::UserResponse,
-            v1::users::dtos::UserDetails,
+            LoginRequest,
+            OnboardRequest,
+            SessionUser,
             v1::rooms::dtos::RoomAvailability,
             v1::rooms::dtos::CalendarBlock,
             v1::rooms::dtos::BlockKind,
