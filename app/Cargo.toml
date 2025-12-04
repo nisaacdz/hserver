@@ -13,3 +13,4 @@ bigdecimal = { workspace = true, features = ["serde"] }
 utoipa = { version = "5.4.0", features = ["actix_extras", "chrono", "uuid"] }
 argon2 = "0.5.3"
 rand = { workspace = true }
+rand_core = { version = "0.6", features = ["getrandom"] }
