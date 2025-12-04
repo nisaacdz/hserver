@@ -37,8 +37,10 @@ infra = { path = "infra" }
 api = { path = "api" }
 app = { path = "app" }
 infra = { path = "infra" }
+migrator = { path = "migrator" }
 actix-web = { workspace = true }
 dotenvy = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
 tokio = { workspace = true, features = ["full"] }
+config = { workspace = true }
