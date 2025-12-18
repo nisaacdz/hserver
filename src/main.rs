@@ -4,7 +4,7 @@ use tracing::info;
 async fn main() -> std::io::Result<()> {
     dotenvy::dotenv().ok();
     tracing_subscriber::fmt::init();
-    
+
     let run_mode = std::env::var("RUN_MODE").ok().filter(|m| ["production", "development", "test"].contains(&m.as_str())).unwrap_or("development".to_string());
 
     let settings = {
@@ -24,11 +24,11 @@ async fn main() -> std::io::Result<()> {
     let pool =
         infra::db::init_pool(&settings.database).expect("Failed to initialize pg connection pool");
 
-    info!("Starting server at http://localhost:8080 in {run_mode}");
-
     migrator::run_migrations(&pool)
         .await
         .expect("Failed to run migrations");
+
+    info!("Starting server at http://{}:{} in {run_mode}", settings.server.host, settings.server.port);
 
     api::run(pool, settings).await
 }
