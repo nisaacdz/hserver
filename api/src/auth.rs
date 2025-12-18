@@ -8,7 +8,6 @@ use actix_web::{
 use app::SecuritySettings;
 pub use app::auth::SessionUser;
 use base64::{Engine as _, engine::general_purpose::STANDARD as BASE64};
-use bincode::{Decode, Encode, config};
 use chacha20poly1305::{
     XChaCha20Poly1305, XNonce,
     aead::{Aead, KeyInit},
@@ -19,10 +18,11 @@ use futures_util::{
     task::{Context, Poll},
 };
 use rand::RngCore;
+use serde::{Deserialize, Serialize};
 use std::{future::Future, pin::Pin, rc::Rc};
 
 /// Internal wrapper to include expiration in the encrypted payload
-#[derive(Encode, Decode, Debug)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct AuthSession {
     pub exp: i64,
     pub user: SessionUser,
@@ -55,8 +55,7 @@ impl TokenEngine {
             user,
         };
 
-        let config = config::standard();
-        let payload_bytes = bincode::encode_to_vec(session, config)
+        let payload_bytes = bincode::serialize(&session)
             .map_err(|_| ErrorInternalServerError("Serialization error"))?;
 
         let mut nonce = XNonce::default();
@@ -88,9 +87,10 @@ impl TokenEngine {
             .cipher
             .decrypt(nonce, ciphertext)
             .map_err(|_| ErrorUnauthorized("Invalid token signature or data"))?;
-        let config = config::standard();
-        let (session, _): (AuthSession, usize) = bincode::decode_from_slice(&plaintext, config)
+
+        let session: AuthSession = bincode::deserialize(&plaintext)
             .map_err(|_| ErrorUnauthorized("Invalid session data"))?;
+
         if session.exp < Utc::now().timestamp() {
             return Err(ErrorUnauthorized("Token expired"));
         }

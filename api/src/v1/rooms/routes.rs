@@ -1,4 +1,5 @@
 use actix_web::{HttpResponse, web};
+use app::AppSettings;
 use infra::db::DbPool;
 use std::rc::Rc;
 use uuid::Uuid;
@@ -55,12 +56,15 @@ pub async fn get_room_details(
     pool: web::Data<DbPool>,
     _user: web::ReqData<Rc<SessionUser>>,
     path: web::Path<Uuid>,
+    settings: web::Data<AppSettings>,
 ) -> HttpResponse {
     let options = GetDetailsOptions {
         room_id: path.into_inner(),
     };
 
-    room::get_details(&pool, options).await.into()
+    room::get_details(&pool, options, &settings.imagekit)
+        .await
+        .into()
 }
 
 #[utoipa::path(
@@ -70,8 +74,11 @@ pub async fn get_room_details(
         (status = 200, description = "List of room classes", body = Vec<RoomClassWithAmenities>)
     )
 )]
-pub async fn get_room_classes(pool: web::Data<DbPool>) -> HttpResponse {
-    room::get_classes(&pool).await.into()
+pub async fn get_room_classes(
+    pool: web::Data<DbPool>,
+    settings: web::Data<AppSettings>,
+) -> HttpResponse {
+    room::get_classes(&pool, &settings.imagekit).await.into()
 }
 
 #[utoipa::path(
@@ -112,6 +119,7 @@ pub async fn find_room(
 pub async fn list_rooms(
     pool: web::Data<DbPool>,
     user: web::ReqData<Rc<SessionUser>>,
+    settings: web::Data<AppSettings>,
     web::Query(query): web::Query<RoomListQuery>,
 ) -> HttpResponse {
     let page = query.page.unwrap_or(1);
@@ -123,5 +131,7 @@ pub async fn list_rooms(
         per_page,
     };
 
-    room::list(&pool, options, &user).await.into()
+    room::list(&pool, options, &user, &settings.imagekit)
+        .await
+        .into()
 }
