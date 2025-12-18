@@ -20,6 +20,7 @@ app = { workspace = true }
 config = { workspace = true }
 bigdecimal = "0.4.9"
 diesel-derive-enum = { workspace = true, features = ["postgres"] }
+url = "2.5"
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["full"] }

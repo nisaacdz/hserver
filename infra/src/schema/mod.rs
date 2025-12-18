@@ -8,6 +8,9 @@ pub mod sql_types {
     #[derive(diesel::sql_types::SqlType)]
     #[diesel(postgres_type(name = "maintenance_severity"))]
     pub struct MaintenanceSeverity;
+    #[derive(diesel::sql_types::SqlType)]
+    #[diesel(postgres_type(name = "media_kind"))]
+    pub struct MediaKind;
 }
 
 diesel::table! {
@@ -75,6 +78,22 @@ diesel::table! {
 }
 
 diesel::table! {
+    use diesel::sql_types::*;
+    use super::sql_types::MediaKind;
+
+    room_classes_media (id) {
+        id -> Uuid,
+        class_id -> Uuid,
+        external_id -> Text,
+        caption -> Nullable<Text>,
+        kind -> MediaKind,
+        width -> Nullable<Integer>,
+        height -> Nullable<Integer>,
+        created_at -> Timestamptz,
+    }
+}
+
+diesel::table! {
     room_classes (id) {
         id -> Uuid,
         name -> Text,
@@ -87,6 +106,22 @@ diesel::table! {
     room_classes_amenities (room_class_id, amenity_id) {
         room_class_id -> Uuid,
         amenity_id -> Uuid,
+    }
+}
+
+diesel::table! {
+    use diesel::sql_types::*;
+    use super::sql_types::MediaKind;
+
+    rooms_media (id) {
+        id -> Uuid,
+        room_id -> Uuid,
+        external_id -> Text,
+        caption -> Nullable<Text>,
+        kind -> MediaKind,
+        width -> Nullable<Integer>,
+        height -> Nullable<Integer>,
+        created_at -> Timestamptz,
     }
 }
 
@@ -129,6 +164,8 @@ diesel::joinable!(room_classes_amenities -> amenities (amenity_id));
 diesel::joinable!(room_classes_amenities -> room_classes (room_class_id));
 diesel::joinable!(rooms -> room_classes (class_id));
 diesel::joinable!(staff -> users (user_id));
+diesel::joinable!(rooms_media -> rooms (room_id));
+diesel::joinable!(room_classes_media -> room_classes (class_id));
 
 diesel::allow_tables_to_appear_in_same_query!(
     amenities,
@@ -140,6 +177,8 @@ diesel::allow_tables_to_appear_in_same_query!(
     room_classes,
     room_classes_amenities,
     rooms,
+    rooms_media,
+    room_classes_media,
     staff,
     users,
 );

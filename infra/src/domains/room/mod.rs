@@ -2,9 +2,11 @@ use crate::db::DbPool;
 use crate::models::Room as DbRoom;
 use crate::models::{Amenity, RoomClass, RoomClassAmenity};
 use crate::models::{Block, Booking, Maintenance};
+use crate::models::{RoomClassMedia, RoomMedia};
 use crate::schema::amenities;
 use crate::schema::{blocks, bookings, maintenance};
 use crate::schema::{room_classes, rooms};
+use crate::services::imagekit::generate_url;
 use app::api::ApiResponse;
 use app::auth::SessionUser;
 use app::interval::{LowerBound, UpperBound};
@@ -13,6 +15,7 @@ use app::rooms::classes::*;
 use app::rooms::details::*;
 use app::rooms::find::*;
 use app::rooms::list::*;
+use app::settings::ImageKitSettings;
 use diesel::dsl::*;
 use diesel::prelude::*;
 use diesel_async::RunQueryDsl;
@@ -33,6 +36,7 @@ pub async fn list(
     pool: &DbPool,
     options: ListRoomOptions,
     user: &SessionUser,
+    _settings: &ImageKitSettings,
 ) -> ApiResponse<ListRoomSuccess, ListRoomError> {
     if user.staff_id.is_none() {
         return ApiResponse::error(ListRoomError::Unauthorized);
@@ -155,6 +159,7 @@ pub async fn get_availability(
 pub async fn get_details(
     pool: &DbPool,
     options: GetDetailsOptions,
+    settings: &ImageKitSettings,
 ) -> ApiResponse<GetDetailsSuccess, GetDetailsError> {
     let mut conn = match pool.get().await {
         Ok(conn) => conn,
@@ -175,6 +180,22 @@ pub async fn get_details(
         Err(_) => return ApiResponse::error(GetDetailsError::InternalError),
     };
 
+    let room_media = match RoomMedia::belonging_to(&room)
+        .load::<RoomMedia>(&mut conn)
+        .await
+    {
+        Ok(media) => media,
+        Err(_) => return ApiResponse::error(GetDetailsError::InternalError),
+    };
+
+    let class_media = match RoomClassMedia::belonging_to(&room_class)
+        .load::<RoomClassMedia>(&mut conn)
+        .await
+    {
+        Ok(media) => media,
+        Err(_) => return ApiResponse::error(GetDetailsError::InternalError),
+    };
+
     ApiResponse::success(GetDetailsSuccess {
         id: room.id,
         label: room.label,
@@ -183,12 +204,41 @@ pub async fn get_details(
             id: room_class.id,
             name: room_class.name,
             base_price: room_class.base_price,
+            media: class_media
+                .into_iter()
+                .map(|m| Media {
+                    id: m.id,
+                    url: generate_url(&m.external_id, settings),
+                    caption: m.caption,
+                    kind: match m.kind {
+                        crate::models::MediaKind::Image => MediaKind::Image,
+                        crate::models::MediaKind::Video => MediaKind::Video,
+                    },
+                    width: m.width,
+                    height: m.height,
+                })
+                .collect(),
         },
+        media: room_media
+            .into_iter()
+            .map(|m| Media {
+                id: m.id,
+                url: generate_url(&m.external_id, settings),
+                caption: m.caption,
+                kind: match m.kind {
+                    crate::models::MediaKind::Image => MediaKind::Image,
+                    crate::models::MediaKind::Video => MediaKind::Video,
+                },
+                width: m.width,
+                height: m.height,
+            })
+            .collect(),
     })
 }
 
 pub async fn get_classes(
     pool: &DbPool,
+    settings: &ImageKitSettings,
 ) -> ApiResponse<Vec<RoomClassWithAmenities>, GetClassesError> {
     let mut conn = match pool.get().await {
         Ok(conn) => conn,
@@ -211,24 +261,50 @@ pub async fn get_classes(
             Err(_) => return ApiResponse::error(GetClassesError::InternalError),
         };
 
+    let media_data: Vec<RoomClassMedia> = match RoomClassMedia::belonging_to(&classes)
+        .load::<RoomClassMedia>(&mut conn)
+        .await
+    {
+        Ok(data) => data,
+        Err(_) => return ApiResponse::error(GetClassesError::InternalError),
+    };
+
     let amenities_grouped = amenities_data.grouped_by(&classes);
+    let media_grouped = media_data.grouped_by(&classes);
 
     let response: Vec<RoomClassWithAmenities> = classes
         .into_iter()
         .zip(amenities_grouped)
-        .map(|(room_class, class_amenities)| RoomClassWithAmenities {
-            id: room_class.id,
-            name: room_class.name,
-            base_price: room_class.base_price,
-            amenities: class_amenities
-                .into_iter()
-                .map(|(_, amenity)| app::rooms::classes::Amenity {
-                    id: amenity.id,
-                    name: amenity.name,
-                    icon_key: amenity.icon_key,
-                })
-                .collect(),
-        })
+        .zip(media_grouped)
+        .map(
+            |((room_class, class_amenities), class_media)| RoomClassWithAmenities {
+                id: room_class.id,
+                name: room_class.name,
+                base_price: room_class.base_price,
+                amenities: class_amenities
+                    .into_iter()
+                    .map(|(_, amenity)| app::rooms::classes::Amenity {
+                        id: amenity.id,
+                        name: amenity.name,
+                        icon_key: amenity.icon_key,
+                    })
+                    .collect(),
+                media: class_media
+                    .into_iter()
+                    .map(|m| Media {
+                        id: m.id,
+                        url: generate_url(&m.external_id, settings),
+                        caption: m.caption,
+                        kind: match m.kind {
+                            crate::models::MediaKind::Image => MediaKind::Image,
+                            crate::models::MediaKind::Video => MediaKind::Video,
+                        },
+                        width: m.width,
+                        height: m.height,
+                    })
+                    .collect(),
+            },
+        )
         .collect();
 
     ApiResponse::success(response)

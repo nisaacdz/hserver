@@ -119,6 +119,39 @@ pub struct RoomClassAmenity {
     pub amenity_id: Uuid,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, diesel_derive_enum::DbEnum)]
+#[ExistingTypePath = "crate::schema::sql_types::MediaKind"]
+pub enum MediaKind {
+    Image,
+    Video,
+}
+
+#[derive(Queryable, Selectable, Identifiable, Associations, Debug, Clone, PartialEq)]
+#[diesel(belongs_to(RoomClass, foreign_key = class_id))]
+#[diesel(table_name = room_classes_media)]
+pub struct RoomClassMedia {
+    pub id: Uuid,
+    pub class_id: Uuid,
+    pub external_id: String,
+    pub caption: Option<String>,
+    pub kind: MediaKind,
+    pub width: Option<i32>,
+    pub height: Option<i32>,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Insertable, Debug, Clone)]
+#[diesel(table_name = room_classes_media)]
+pub struct NewRoomClassMedia {
+    pub id: Option<Uuid>,
+    pub class_id: Uuid,
+    pub external_id: String,
+    pub caption: Option<String>,
+    pub kind: MediaKind,
+    pub width: Option<i32>,
+    pub height: Option<i32>,
+}
+
 #[derive(Queryable, Selectable, Identifiable, Associations, Debug, Clone, PartialEq)]
 #[diesel(belongs_to(RoomClass, foreign_key = class_id))]
 #[diesel(table_name = rooms)]
@@ -127,6 +160,32 @@ pub struct Room {
     pub label: String,
     pub class_id: Uuid,
     pub created_at: DateTime<Utc>,
+}
+
+#[derive(Queryable, Selectable, Identifiable, Associations, Debug, Clone, PartialEq)]
+#[diesel(belongs_to(Room, foreign_key = room_id))]
+#[diesel(table_name = rooms_media)]
+pub struct RoomMedia {
+    pub id: Uuid,
+    pub room_id: Uuid,
+    pub external_id: String,
+    pub caption: Option<String>,
+    pub kind: MediaKind,
+    pub width: Option<i32>,
+    pub height: Option<i32>,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Insertable, Debug, Clone)]
+#[diesel(table_name = rooms_media)]
+pub struct NewRoomMedia {
+    pub id: Option<Uuid>,
+    pub room_id: Uuid,
+    pub external_id: String,
+    pub caption: Option<String>,
+    pub kind: MediaKind,
+    pub width: Option<i32>,
+    pub height: Option<i32>,
 }
 
 #[derive(Insertable, Debug, Clone)]

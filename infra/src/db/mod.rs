@@ -1,4 +1,4 @@
-use app::DatabaseSettings;
+use app::settings::DatabaseSettings;
 use diesel::result::ConnectionError;
 use diesel_async::{
     AsyncPgConnection,
