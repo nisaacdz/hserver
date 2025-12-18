@@ -11,3 +11,6 @@ environment = "development"
 
 [security]
 session_duration = 3600
+
+[imagekit]
+url = "https://ik.imagekit.io/your_id/"
