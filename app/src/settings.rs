@@ -36,4 +36,10 @@ pub struct AppSettings {
     pub database: DatabaseSettings,
     pub application: ApplicationSettings,
     pub security: SecuritySettings,
+    pub imagekit: ImageKitSettings,
+}
+
+#[derive(Debug, Deserialize, Clone)]
+pub struct ImageKitSettings {
+    pub url: String,
 }

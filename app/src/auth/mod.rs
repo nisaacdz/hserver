@@ -19,36 +19,6 @@ pub struct SessionUser {
     pub email: String,
 }
 
-bincode::impl_borrow_decode! {SessionUser}
-
-impl bincode::Encode for SessionUser {
-    fn encode<E: bincode::enc::Encoder>(
-        &self,
-        encoder: &mut E,
-    ) -> Result<(), bincode::error::EncodeError> {
-        bincode::Encode::encode(&self.id.as_bytes(), encoder)?;
-        bincode::Encode::encode(&self.staff_id.as_ref().map(|id| id.as_bytes()), encoder)?;
-        bincode::Encode::encode(&self.email, encoder)?;
-        Ok(())
-    }
-}
-
-impl<Ctx> bincode::Decode<Ctx> for SessionUser {
-    fn decode<D: bincode::de::Decoder>(
-        decoder: &mut D,
-    ) -> Result<Self, bincode::error::DecodeError> {
-        let id = Uuid::from_bytes(bincode::Decode::decode(decoder)?);
-        let staff_id = Option::<[u8; 16]>::decode(decoder)?.map(Uuid::from_bytes);
-        let email = bincode::Decode::decode(decoder)?;
-
-        Ok(SessionUser {
-            id,
-            staff_id,
-            email,
-        })
-    }
-}
-
 #[derive(Debug)]
 pub enum AuthError {
     InternalError,

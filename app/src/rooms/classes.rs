@@ -13,6 +13,25 @@ pub struct RoomClassWithAmenities {
     #[schema(value_type = String)]
     pub base_price: BigDecimal,
     pub amenities: Vec<Amenity>,
+    pub media: Vec<Media>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct Media {
+    pub id: Uuid,
+    pub url: String,
+    pub caption: Option<String>,
+    pub kind: MediaKind,
+    pub width: Option<i32>,
+    pub height: Option<i32>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub enum MediaKind {
+    Image,
+    Video,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]

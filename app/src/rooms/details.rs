@@ -17,6 +17,7 @@ pub struct GetDetailsSuccess {
     pub label: String,
     pub class_id: Uuid,
     pub class: RoomClassSummary,
+    pub media: Vec<crate::rooms::classes::Media>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
@@ -26,6 +27,7 @@ pub struct RoomClassSummary {
     pub name: String,
     #[schema(value_type = String)]
     pub base_price: BigDecimal,
+    pub media: Vec<crate::rooms::classes::Media>,
 }
 
 #[derive(Debug, Serialize)]
