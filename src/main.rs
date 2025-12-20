@@ -5,10 +5,12 @@ async fn main() -> std::io::Result<()> {
     dotenvy::dotenv().ok();
     tracing_subscriber::fmt::init();
 
-    let run_mode = std::env::var("RUN_MODE").ok().filter(|m| ["production", "development", "test"].contains(&m.as_str())).unwrap_or("development".to_string());
+    let run_mode = std::env::var("RUN_MODE")
+        .ok()
+        .filter(|m| ["production", "development", "test"].contains(&m.as_str()))
+        .unwrap_or("development".to_string());
 
     let settings = {
-
         let settings: app::AppSettings = config::Config::builder()
             .add_source(config::File::with_name("config/default"))
             .add_source(config::File::with_name(&format!("config/{}", run_mode)).required(false))
@@ -28,7 +30,10 @@ async fn main() -> std::io::Result<()> {
         .await
         .expect("Failed to run migrations");
 
-    info!("Starting server at http://{}:{} in {run_mode}", settings.server.host, settings.server.port);
+    info!(
+        "Starting server at http://{}:{} in {run_mode}",
+        settings.server.host, settings.server.port
+    );
 
     api::run(pool, settings).await
 }
