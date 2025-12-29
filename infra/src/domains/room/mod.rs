@@ -1,25 +1,27 @@
-use crate::db::DbPool;
-use crate::models::Room as DbRoom;
-use crate::models::{Amenity, RoomClass, RoomClassAmenity};
-use crate::models::{Block, Booking, Maintenance};
-use crate::models::{RoomClassMedia, RoomMedia};
-use crate::schema::amenities;
-use crate::schema::{blocks, bookings, maintenance};
-use crate::schema::{room_classes, rooms};
-use crate::services::imagekit::generate_url;
-use app::api::ApiResponse;
-use app::auth::SessionUser;
-use app::interval::{LowerBound, UpperBound};
-use app::rooms::availability::*;
-use app::rooms::classes::*;
-use app::rooms::details::*;
-use app::rooms::find::*;
-use app::rooms::list::*;
-use app::settings::ImageKitSettings;
+use std::ops::Bound;
+
 use diesel::dsl::*;
 use diesel::prelude::*;
 use diesel_async::RunQueryDsl;
-use std::ops::Bound;
+
+use app::{
+    actix_web::{HttpResponse, http::StatusCode},
+    api::ApiResponse,
+    auth::SessionUser,
+    interval::{LowerBound, UpperBound},
+    rooms::{availability::*, classes::*, details::*, find::*, list::*},
+    settings::ImageKitSettings,
+};
+
+use crate::{
+    db::DbPool,
+    models::{
+        Amenity, Block, Booking, Maintenance, Room as DbRoom, RoomClass, RoomClassAmenity,
+        RoomClassMedia, RoomMedia,
+    },
+    schema::{amenities, blocks, bookings, maintenance, room_classes, rooms},
+    services::imagekit::generate_url,
+};
 
 impl From<DbRoom> for app::rooms::list::ListedRoom {
     fn from(room: DbRoom) -> Self {
@@ -77,10 +79,13 @@ pub async fn list(
 
     let domain_rooms: Vec<ListedRoom> = rooms_list.into_iter().map(Into::into).collect();
 
-    ApiResponse::success(ListRoomSuccess {
-        rooms: domain_rooms,
-        total: total_rooms as usize,
-    })
+    ApiResponse::success(HttpResponse::with_body(
+        StatusCode::OK,
+        ListRoomSuccess {
+            rooms: domain_rooms,
+            total: total_rooms as usize,
+        },
+    ))
 }
 
 pub async fn get_availability(
@@ -149,11 +154,14 @@ pub async fn get_availability(
         )
     };
 
-    ApiResponse::success(GetAvailabilitySuccess {
-        room_id: options.room_id,
-        period,
-        blocks: calendar_blocks,
-    })
+    ApiResponse::success(HttpResponse::with_body(
+        StatusCode::OK,
+        GetAvailabilitySuccess {
+            room_id: options.room_id,
+            period,
+            blocks: calendar_blocks,
+        },
+    ))
 }
 
 pub async fn get_details(
@@ -196,15 +204,32 @@ pub async fn get_details(
         Err(_) => return ApiResponse::error(GetDetailsError::InternalError),
     };
 
-    ApiResponse::success(GetDetailsSuccess {
-        id: room.id,
-        label: room.label,
-        class_id: room.class_id,
-        class: RoomClassSummary {
-            id: room_class.id,
-            name: room_class.name,
-            base_price: room_class.base_price,
-            media: class_media
+    ApiResponse::success(HttpResponse::with_body(
+        StatusCode::OK,
+        GetDetailsSuccess {
+            id: room.id,
+            label: room.label,
+            class_id: room.class_id,
+            class: RoomClassSummary {
+                id: room_class.id,
+                name: room_class.name,
+                base_price: room_class.base_price,
+                media: class_media
+                    .into_iter()
+                    .map(|m| Media {
+                        id: m.id,
+                        url: generate_url(&m.external_id, settings),
+                        caption: m.caption,
+                        kind: match m.kind {
+                            crate::models::MediaKind::Image => MediaKind::Image,
+                            crate::models::MediaKind::Video => MediaKind::Video,
+                        },
+                        width: m.width,
+                        height: m.height,
+                    })
+                    .collect(),
+            },
+            media: room_media
                 .into_iter()
                 .map(|m| Media {
                     id: m.id,
@@ -219,21 +244,7 @@ pub async fn get_details(
                 })
                 .collect(),
         },
-        media: room_media
-            .into_iter()
-            .map(|m| Media {
-                id: m.id,
-                url: generate_url(&m.external_id, settings),
-                caption: m.caption,
-                kind: match m.kind {
-                    crate::models::MediaKind::Image => MediaKind::Image,
-                    crate::models::MediaKind::Video => MediaKind::Video,
-                },
-                width: m.width,
-                height: m.height,
-            })
-            .collect(),
-    })
+    ))
 }
 
 pub async fn get_classes(
@@ -307,7 +318,7 @@ pub async fn get_classes(
         )
         .collect();
 
-    ApiResponse::success(response)
+    ApiResponse::success(HttpResponse::with_body(StatusCode::OK, response))
 }
 
 pub async fn find(
@@ -352,7 +363,10 @@ pub async fn find(
         })
         .collect();
 
-    ApiResponse::success(FindRoomSuccess {
-        rooms: response_rooms,
-    })
+    ApiResponse::success(HttpResponse::with_body(
+        StatusCode::OK,
+        FindRoomSuccess {
+            rooms: response_rooms,
+        },
+    ))
 }

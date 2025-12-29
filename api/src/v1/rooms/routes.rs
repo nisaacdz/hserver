@@ -31,7 +31,7 @@ pub async fn get_room_availability(
     user: web::ReqData<Rc<SessionUser>>,
     path: web::Path<Uuid>,
     query: web::Query<RoomAvailabilityQuery>,
-) -> HttpResponse {
+) -> Result<HttpResponse, GetAvailabilityError> {
     let options = GetAvailabilityOptions {
         room_id: path.into_inner(),
         start: query.start,
@@ -57,7 +57,7 @@ pub async fn get_room_details(
     _user: web::ReqData<Rc<SessionUser>>,
     path: web::Path<Uuid>,
     settings: web::Data<AppSettings>,
-) -> HttpResponse {
+) -> Result<HttpResponse, GetDetailsError> {
     let options = GetDetailsOptions {
         room_id: path.into_inner(),
     };
@@ -77,7 +77,7 @@ pub async fn get_room_details(
 pub async fn get_room_classes(
     pool: web::Data<DbPool>,
     settings: web::Data<AppSettings>,
-) -> HttpResponse {
+) -> Result<HttpResponse, GetClassesError> {
     room::get_classes(&pool, &settings.imagekit).await.into()
 }
 
@@ -95,7 +95,7 @@ pub async fn get_room_classes(
 pub async fn find_room(
     pool: web::Data<DbPool>,
     web::Query(query): web::Query<FindRoomQuery>,
-) -> HttpResponse {
+) -> Result<HttpResponse, FindRoomError> {
     let options = FindRoomOptions {
         start: query.start,
         end: query.end,
@@ -121,7 +121,7 @@ pub async fn list_rooms(
     user: web::ReqData<Rc<SessionUser>>,
     settings: web::Data<AppSettings>,
     web::Query(query): web::Query<RoomListQuery>,
-) -> HttpResponse {
+) -> Result<HttpResponse, ListRoomError> {
     let page = query.page.unwrap_or(1);
     let per_page = query.per_page.unwrap_or(10);
 

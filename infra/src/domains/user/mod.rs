@@ -1,6 +1,8 @@
 use crate::db::DbPool;
 use crate::models::User as DbUser;
 use crate::schema::users::dsl as users_dsl;
+use app::actix_web::HttpResponse;
+use app::actix_web::http::StatusCode;
 use app::api::ApiResponse;
 use app::users::details::*;
 use diesel::prelude::*;
@@ -27,10 +29,13 @@ pub async fn get_details(
         Err(_) => return ApiResponse::error(GetUserDetailsError::InternalError),
     };
 
-    ApiResponse::success(GetUserDetailsSuccess {
-        user: UserDetails {
-            id: user.id,
-            email: user.email,
+    ApiResponse::success(HttpResponse::with_body(
+        StatusCode::OK,
+        GetUserDetailsSuccess {
+            user: UserDetails {
+                id: user.id,
+                email: user.email,
+            },
         },
-    })
+    ))
 }
