@@ -37,7 +37,9 @@ impl<S: Serialize, E: ResponseError> ApiResponse<S, E> {
 impl<S: Serialize, E: ResponseError> From<ApiResponse<S, E>> for HttpResponse<BoxBody> {
     fn from(api_response: ApiResponse<S, E>) -> Self {
         match api_response {
-            ApiResponse::Success(value) => value.map_body(|_, v| serde_json::to_string(&v).expect("Failed to serialize response")).map_into_boxed_body(),
+            ApiResponse::Success(value) => value
+                .map_body(|_, v| serde_json::to_string(&v).expect("Failed to serialize response"))
+                .map_into_boxed_body(),
             ApiResponse::Error(error) => error.error_response(),
         }
     }
@@ -46,7 +48,9 @@ impl<S: Serialize, E: ResponseError> From<ApiResponse<S, E>> for HttpResponse<Bo
 impl<S: Serialize, E: ResponseError> From<ApiResponse<S, E>> for Result<HttpResponse<BoxBody>, E> {
     fn from(api_response: ApiResponse<S, E>) -> Self {
         match api_response {
-            ApiResponse::Success(value) => Ok(value.map_body(|_, v| serde_json::to_string(&v).expect("Failed to serialize response")).map_into_boxed_body()),
+            ApiResponse::Success(value) => Ok(value
+                .map_body(|_, v| serde_json::to_string(&v).expect("Failed to serialize response"))
+                .map_into_boxed_body()),
             ApiResponse::Error(error) => Err(error),
         }
     }

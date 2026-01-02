@@ -1686,6 +1686,7 @@ dependencies = [
  "chrono",
  "config",
  "deadpool",
+ "derive_more",
  "diesel",
  "diesel-async",
  "diesel-derive-enum",

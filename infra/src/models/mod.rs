@@ -1,10 +1,18 @@
 use bigdecimal::BigDecimal;
 use chrono::{DateTime, Utc};
+use derive_more::Display;
 use diesel::prelude::*;
 use std::collections::Bound;
 use uuid::Uuid;
 
 use crate::schema::*;
+
+#[derive(Debug, Display, Clone, Copy, PartialEq, Eq, diesel_derive_enum::DbEnum)]
+#[ExistingTypePath = "crate::schema::sql_types::BookingStatus"]
+pub enum BookingStatus {
+    Pending,
+    Confirmed,
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, diesel_derive_enum::DbEnum)]
 #[ExistingTypePath = "crate::schema::sql_types::MaintenanceKind"]
@@ -231,17 +239,15 @@ pub struct NewBlock {
 pub struct Booking {
     pub block_id: Uuid,
     pub guest_id: Uuid,
-    pub status: String,
-    pub payment_status: String,
+    pub status: BookingStatus,
 }
 
 #[derive(Insertable, Debug, Clone)]
 #[diesel(table_name = bookings)]
-pub struct NewBooking<'a> {
+pub struct NewBooking {
     pub block_id: Uuid,
     pub guest_id: Uuid,
-    pub status: &'a str,
-    pub payment_status: &'a str,
+    pub status: BookingStatus,
 }
 
 #[derive(Queryable, Selectable, Identifiable, Associations, Debug, Clone, PartialEq)]
