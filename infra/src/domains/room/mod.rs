@@ -1,7 +1,6 @@
 use std::ops::Bound;
 
-use diesel::dsl::*;
-use diesel::prelude::*;
+use diesel::{dsl::*, prelude::*};
 use diesel_async::RunQueryDsl;
 
 use app::{
