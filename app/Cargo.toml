@@ -9,7 +9,7 @@ serde_json = { workspace = true }
 uuid = { workspace = true, features = ["serde", "v4"] }
 chrono = { workspace = true, features = ["serde"] }
 actix-web = { workspace = true }
-bincode = "2.0.1"
+bitcode = { version = "0.6.9", features = ["uuid"] }
 bigdecimal = { workspace = true, features = ["serde"] }
 utoipa = { version = "5.4.0", features = ["actix_extras", "chrono", "uuid"] }
 argon2 = "0.5.3"

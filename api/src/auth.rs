@@ -22,7 +22,7 @@ use serde::{Deserialize, Serialize};
 use std::{future::Future, pin::Pin, rc::Rc};
 
 /// Internal wrapper to include expiration in the encrypted payload
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, bitcode::Encode, bitcode::Decode)]
 pub struct AuthSession {
     pub exp: i64,
     pub user: SessionUser,
@@ -55,8 +55,8 @@ impl TokenEngine {
             user,
         };
 
-        let payload_bytes = bincode::serialize(&session)
-            .map_err(|_| ErrorInternalServerError("Serialization error"))?;
+        let payload_bytes = bitcode::encode(&session);
+
 
         let mut nonce = XNonce::default();
         rand::rng().fill_bytes(&mut nonce);
@@ -88,7 +88,7 @@ impl TokenEngine {
             .decrypt(nonce, ciphertext)
             .map_err(|_| ErrorUnauthorized("Invalid token signature or data"))?;
 
-        let session: AuthSession = bincode::deserialize(&plaintext)
+        let session: AuthSession = bitcode::decode(&plaintext)
             .map_err(|_| ErrorUnauthorized("Invalid session data"))?;
 
         if session.exp < Utc::now().timestamp() {
