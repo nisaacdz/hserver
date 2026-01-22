@@ -24,16 +24,6 @@ impl<S: Serialize, E: ResponseError> From<Result<HttpResponse<S>, E>> for ApiRes
 //     }
 // }
 
-impl<S: Serialize, E: ResponseError> ApiResponse<S, E> {
-    pub fn success(value: HttpResponse<S>) -> Self {
-        ApiResponse::Success(value)
-    }
-
-    pub fn error(error: E) -> Self {
-        ApiResponse::Error(error)
-    }
-}
-
 impl<S: Serialize, E: ResponseError> From<ApiResponse<S, E>> for HttpResponse<BoxBody> {
     fn from(api_response: ApiResponse<S, E>) -> Self {
         match api_response {

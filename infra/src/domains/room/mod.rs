@@ -40,12 +40,12 @@ pub async fn list(
     _settings: &ImageKitSettings,
 ) -> ApiResponse<ListRoomSuccess, ListRoomError> {
     if user.staff_id.is_none() {
-        return ApiResponse::error(ListRoomError::Unauthorized);
+        return ApiResponse::Error(ListRoomError::Unauthorized);
     }
 
     let mut conn = match pool.get().await {
         Ok(conn) => conn,
-        Err(_) => return ApiResponse::error(ListRoomError::InternalError),
+        Err(_) => return ApiResponse::Error(ListRoomError::InternalError),
     };
 
     let mut count_query = rooms::table.into_boxed();
@@ -59,7 +59,7 @@ pub async fn list(
 
     let total_rooms: i64 = match count_query.count().get_result(&mut conn).await {
         Ok(total) => total,
-        Err(e) => return ApiResponse::error(ListRoomError::DatabaseError(e.to_string())),
+        Err(e) => return ApiResponse::Error(ListRoomError::DatabaseError(e.to_string())),
     };
 
     let page = options.page.max(1);
@@ -73,12 +73,12 @@ pub async fn list(
         .await
     {
         Ok(rooms) => rooms,
-        Err(e) => return ApiResponse::error(ListRoomError::DatabaseError(e.to_string())),
+        Err(e) => return ApiResponse::Error(ListRoomError::DatabaseError(e.to_string())),
     };
 
     let domain_rooms: Vec<ListedRoom> = rooms_list.into_iter().map(Into::into).collect();
 
-    ApiResponse::success(HttpResponse::with_body(
+    ApiResponse::Success(HttpResponse::with_body(
         StatusCode::OK,
         ListRoomSuccess {
             rooms: domain_rooms,
@@ -93,12 +93,12 @@ pub async fn get_availability(
     user: &SessionUser,
 ) -> ApiResponse<GetAvailabilitySuccess, GetAvailabilityError> {
     if user.staff_id.is_none() {
-        return ApiResponse::error(GetAvailabilityError::Unauthorized);
+        return ApiResponse::Error(GetAvailabilityError::Unauthorized);
     }
 
     let mut conn = match pool.get().await {
         Ok(conn) => conn,
-        Err(_) => return ApiResponse::error(GetAvailabilityError::InternalError),
+        Err(_) => return ApiResponse::Error(GetAvailabilityError::InternalError),
     };
 
     let period = (Bound::Included(options.start), Bound::Excluded(options.end));
@@ -113,7 +113,7 @@ pub async fn get_availability(
         .await
     {
         Ok(data) => data,
-        Err(_) => return ApiResponse::error(GetAvailabilityError::NotFound),
+        Err(_) => return ApiResponse::Error(GetAvailabilityError::NotFound),
     };
 
     let calendar_blocks = data
@@ -153,7 +153,7 @@ pub async fn get_availability(
         )
     };
 
-    ApiResponse::success(HttpResponse::with_body(
+    ApiResponse::Success(HttpResponse::with_body(
         StatusCode::OK,
         GetAvailabilitySuccess {
             room_id: options.room_id,
@@ -170,7 +170,7 @@ pub async fn get_details(
 ) -> ApiResponse<GetDetailsSuccess, GetDetailsError> {
     let mut conn = match pool.get().await {
         Ok(conn) => conn,
-        Err(_) => return ApiResponse::error(GetDetailsError::InternalError),
+        Err(_) => return ApiResponse::Error(GetDetailsError::InternalError),
     };
 
     let (room, room_class): (DbRoom, RoomClass) = match rooms::table
@@ -182,9 +182,9 @@ pub async fn get_details(
     {
         Ok(data) => data,
         Err(diesel::result::Error::NotFound) => {
-            return ApiResponse::error(GetDetailsError::NotFound);
+            return ApiResponse::Error(GetDetailsError::NotFound);
         }
-        Err(_) => return ApiResponse::error(GetDetailsError::InternalError),
+        Err(_) => return ApiResponse::Error(GetDetailsError::InternalError),
     };
 
     let room_media = match RoomMedia::belonging_to(&room)
@@ -192,7 +192,7 @@ pub async fn get_details(
         .await
     {
         Ok(media) => media,
-        Err(_) => return ApiResponse::error(GetDetailsError::InternalError),
+        Err(_) => return ApiResponse::Error(GetDetailsError::InternalError),
     };
 
     let class_media = match RoomClassMedia::belonging_to(&room_class)
@@ -200,10 +200,10 @@ pub async fn get_details(
         .await
     {
         Ok(media) => media,
-        Err(_) => return ApiResponse::error(GetDetailsError::InternalError),
+        Err(_) => return ApiResponse::Error(GetDetailsError::InternalError),
     };
 
-    ApiResponse::success(HttpResponse::with_body(
+    ApiResponse::Success(HttpResponse::with_body(
         StatusCode::OK,
         GetDetailsSuccess {
             id: room.id,
@@ -252,12 +252,12 @@ pub async fn get_classes(
 ) -> ApiResponse<Vec<RoomClassWithAmenities>, GetClassesError> {
     let mut conn = match pool.get().await {
         Ok(conn) => conn,
-        Err(_) => return ApiResponse::error(GetClassesError::InternalError),
+        Err(_) => return ApiResponse::Error(GetClassesError::InternalError),
     };
 
     let classes: Vec<RoomClass> = match room_classes::table.load::<RoomClass>(&mut conn).await {
         Ok(classes) => classes,
-        Err(_) => return ApiResponse::error(GetClassesError::InternalError),
+        Err(_) => return ApiResponse::Error(GetClassesError::InternalError),
     };
 
     let amenities_data: Vec<(RoomClassAmenity, Amenity)> =
@@ -268,7 +268,7 @@ pub async fn get_classes(
             .await
         {
             Ok(data) => data,
-            Err(_) => return ApiResponse::error(GetClassesError::InternalError),
+            Err(_) => return ApiResponse::Error(GetClassesError::InternalError),
         };
 
     let media_data: Vec<RoomClassMedia> = match RoomClassMedia::belonging_to(&classes)
@@ -276,7 +276,7 @@ pub async fn get_classes(
         .await
     {
         Ok(data) => data,
-        Err(_) => return ApiResponse::error(GetClassesError::InternalError),
+        Err(_) => return ApiResponse::Error(GetClassesError::InternalError),
     };
 
     let amenities_grouped = amenities_data.grouped_by(&classes);
@@ -317,7 +317,7 @@ pub async fn get_classes(
         )
         .collect();
 
-    ApiResponse::success(HttpResponse::with_body(StatusCode::OK, response))
+    ApiResponse::Success(HttpResponse::with_body(StatusCode::OK, response))
 }
 
 pub async fn find(
@@ -325,12 +325,12 @@ pub async fn find(
     options: FindRoomOptions,
 ) -> ApiResponse<FindRoomSuccess, FindRoomError> {
     if options.start >= options.end {
-        return ApiResponse::error(FindRoomError::InvalidDateRange);
+        return ApiResponse::Error(FindRoomError::InvalidDateRange);
     }
 
     let mut conn = match pool.get().await {
         Ok(conn) => conn,
-        Err(_) => return ApiResponse::error(FindRoomError::InternalError),
+        Err(_) => return ApiResponse::Error(FindRoomError::InternalError),
     };
 
     let search_range = (Bound::Included(options.start), Bound::Excluded(options.end));
@@ -350,7 +350,7 @@ pub async fn find(
     let available_rooms: Vec<DbRoom> =
         match db_query.select(DbRoom::as_select()).load(&mut conn).await {
             Ok(rooms) => rooms,
-            Err(_) => return ApiResponse::error(FindRoomError::InternalError),
+            Err(_) => return ApiResponse::Error(FindRoomError::InternalError),
         };
 
     let response_rooms: Vec<RoomSummary> = available_rooms
@@ -362,7 +362,7 @@ pub async fn find(
         })
         .collect();
 
-    ApiResponse::success(HttpResponse::with_body(
+    ApiResponse::Success(HttpResponse::with_body(
         StatusCode::OK,
         FindRoomSuccess {
             rooms: response_rooms,

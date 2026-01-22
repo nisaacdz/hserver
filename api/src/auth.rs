@@ -57,7 +57,6 @@ impl TokenEngine {
 
         let payload_bytes = bitcode::encode(&session);
 
-
         let mut nonce = XNonce::default();
         rand::rng().fill_bytes(&mut nonce);
 
@@ -88,8 +87,8 @@ impl TokenEngine {
             .decrypt(nonce, ciphertext)
             .map_err(|_| ErrorUnauthorized("Invalid token signature or data"))?;
 
-        let session: AuthSession = bitcode::decode(&plaintext)
-            .map_err(|_| ErrorUnauthorized("Invalid session data"))?;
+        let session: AuthSession =
+            bitcode::decode(&plaintext).map_err(|_| ErrorUnauthorized("Invalid session data"))?;
 
         if session.exp < Utc::now().timestamp() {
             return Err(ErrorUnauthorized("Token expired"));

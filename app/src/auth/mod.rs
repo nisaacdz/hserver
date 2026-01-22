@@ -12,7 +12,9 @@ use utoipa::ToSchema;
 pub mod login;
 pub mod onboard;
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, ToSchema, bitcode::Encode, bitcode::Decode)]
+#[derive(
+    Clone, Debug, PartialEq, Serialize, Deserialize, ToSchema, bitcode::Encode, bitcode::Decode,
+)]
 pub struct SessionUser {
     pub id: Uuid,
     pub staff_id: Option<Uuid>,

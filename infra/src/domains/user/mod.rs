@@ -14,7 +14,7 @@ pub async fn get_details(
 ) -> ApiResponse<GetUserDetailsSuccess, GetUserDetailsError> {
     let mut conn = match pool.get().await {
         Ok(conn) => conn,
-        Err(_) => return ApiResponse::error(GetUserDetailsError::InternalError),
+        Err(_) => return ApiResponse::Error(GetUserDetailsError::InternalError),
     };
 
     let user: DbUser = match users_dsl::users
@@ -24,12 +24,12 @@ pub async fn get_details(
     {
         Ok(user) => user,
         Err(diesel::result::Error::NotFound) => {
-            return ApiResponse::error(GetUserDetailsError::NotFound);
+            return ApiResponse::Error(GetUserDetailsError::NotFound);
         }
-        Err(_) => return ApiResponse::error(GetUserDetailsError::InternalError),
+        Err(_) => return ApiResponse::Error(GetUserDetailsError::InternalError),
     };
 
-    ApiResponse::success(HttpResponse::with_body(
+    ApiResponse::Success(HttpResponse::with_body(
         StatusCode::OK,
         GetUserDetailsSuccess {
             user: UserDetails {
