@@ -1,4 +1,5 @@
--- Unschedule the job
-SELECT cron.unschedule('cleanup_expired_bookings');
+-- This file should undo anything in `up.sql`
 
-DROP EXTENSION IF EXISTS pg_cron;
+SELECT cron.unschedule('cleanup_expired_bookings');
+DROP FUNCTION cleanup_expired_data;
+DROP EXTENSION pg_cron;

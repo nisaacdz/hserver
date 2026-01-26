@@ -1,16 +1,16 @@
 -- Your SQL goes here
 
-CREATE TYPE transaction_status AS ENUM ('empty', 'pending', 'failed', 'succeeded', 'reversed');
-CREATE TYPE transaction_kind AS ENUM ('incoming', 'outgoing');
+CREATE TYPE transaction_status AS ENUM ('pending', 'failed', 'succeeded');
+CREATE TYPE external_provider AS ENUM ('stripe', 'paystack');
 
 CREATE TABLE transactions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    booking_id UUID NOT NULL REFERENCES bookings(block_id), -- Links to your existing PK
-    external_id TEXT NOT NULL, -- The Stripe/PayPal Intent ID
+    reservation_id UUID NOT NULL REFERENCES reservations(id) ON DELETE CASCADE,
+    external_provider external_provider NOT NULL,
+    external_id TEXT NOT NULL,
     amount DECIMAL(10, 2) NOT NULL,
     currency TEXT NOT NULL,
     status transaction_status NOT NULL,
-    kind transaction_kind NOT NULL,
     label TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
