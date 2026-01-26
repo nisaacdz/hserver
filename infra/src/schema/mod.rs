@@ -52,6 +52,7 @@ diesel::table! {
         block_id -> Uuid,
         guest_id -> Uuid,
         status -> BookingStatus,
+        expires_at -> Nullable<Timestamptz>,
     }
 }
 
