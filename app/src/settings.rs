@@ -1,4 +1,5 @@
 use serde::Deserialize;
+use std::time::Duration;
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct ServerSettings {
@@ -31,15 +32,22 @@ impl SecuritySettings {
 }
 
 #[derive(Debug, Deserialize, Clone)]
+pub struct BookingSettings {
+    #[serde(with = "humantime_serde")]
+    pub grace_period: Duration,
+}
+
+#[derive(Debug, Deserialize, Clone)]
+pub struct ImageKitSettings {
+    pub url: String,
+}
+
+#[derive(Debug, Deserialize, Clone)]
 pub struct AppSettings {
     pub server: ServerSettings,
     pub database: DatabaseSettings,
     pub application: ApplicationSettings,
     pub security: SecuritySettings,
     pub imagekit: ImageKitSettings,
-}
-
-#[derive(Debug, Deserialize, Clone)]
-pub struct ImageKitSettings {
-    pub url: String,
+    pub booking: BookingSettings,
 }
