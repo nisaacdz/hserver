@@ -240,6 +240,7 @@ pub struct Booking {
     pub block_id: Uuid,
     pub guest_id: Uuid,
     pub status: BookingStatus,
+    pub expires_at: Option<DateTime<Utc>>,
 }
 
 #[derive(Insertable, Debug, Clone)]
@@ -248,6 +249,7 @@ pub struct NewBooking {
     pub block_id: Uuid,
     pub guest_id: Uuid,
     pub status: BookingStatus,
+    pub expires_at: DateTime<Utc>,
 }
 
 #[derive(Queryable, Selectable, Identifiable, Associations, Debug, Clone, PartialEq)]
