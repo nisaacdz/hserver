@@ -119,8 +119,8 @@ pub async fn get_availability(
     let calendar_blocks = data
         .into_iter()
         .map(|(block, booking, maintenance_record)| {
-            let (kind, label) = if let Some(booking) = booking {
-                (BlockKind::Booking, Some(booking.status.to_string()))
+            let (kind, label) = if let Some(_) = booking {
+                (BlockKind::Booking, Some("booked".to_string()))
             } else if let Some(m) = maintenance_record {
                 (BlockKind::Maintenance, Some(format!("{:?}", m.kind)))
             } else {
