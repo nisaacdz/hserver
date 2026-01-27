@@ -1,5 +1,6 @@
 use serde::Deserialize;
 use std::time::Duration;
+use url::Url;
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct ServerSettings {
@@ -31,15 +32,18 @@ impl SecuritySettings {
     }
 }
 
-#[derive(Debug, Deserialize, Clone)]
-pub struct BookingSettings {
+#[derive(Debug, Deserialize, Clone, Copy)]
+pub struct ReservationSettings {
     #[serde(with = "humantime_serde")]
     pub grace_period: Duration,
+    pub discount_rate: f64,
+    pub vat_rate: f64,
 }
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct ImageKitSettings {
-    pub url: String,
+    #[serde(with = "deserialize_url_from_str")]
+    pub url: Url,
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -49,5 +53,18 @@ pub struct AppSettings {
     pub application: ApplicationSettings,
     pub security: SecuritySettings,
     pub imagekit: ImageKitSettings,
-    pub booking: BookingSettings,
+    pub reservation: ReservationSettings,
+}
+
+mod deserialize_url_from_str {
+    use serde::{self, Deserialize, Deserializer};
+    use url::Url;
+
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<Url, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let s: String = Deserialize::deserialize(deserializer)?;
+        Url::parse(&s).map_err(serde::de::Error::custom)
+    }
 }

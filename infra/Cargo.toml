@@ -21,7 +21,9 @@ config = { workspace = true }
 derive_more = { workspace = true }
 bigdecimal = "0.4.9"
 diesel-derive-enum = { workspace = true, features = ["postgres"] }
-url = "2.5"
+url = { workspace = true }
+num-traits = "0.2"
+
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["full"] }

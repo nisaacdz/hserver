@@ -1,6 +1,7 @@
 use actix_web::web;
 
 pub mod auth;
+// pub mod bookings;
 pub mod rooms;
 pub mod users;
 
@@ -12,6 +13,7 @@ pub fn configure_v1_routes(cfg: &mut web::ServiceConfig) {
     cfg.service(
         web::scope("/v1")
             .configure(configure_auth_routes)
+            // .configure(configure_bookings_routes)
             .configure(configure_rooms_routes)
             .configure(configure_users_routes),
     );
