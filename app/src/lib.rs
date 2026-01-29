@@ -3,6 +3,7 @@ pub use settings::*;
 
 pub mod api;
 pub mod auth;
+pub mod billing;
 pub mod interval;
 pub mod reservations;
 pub mod rooms;

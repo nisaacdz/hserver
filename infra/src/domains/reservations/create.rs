@@ -5,10 +5,10 @@ use crate::{
         ReservationStatus, Room, RoomClass,
     },
     schema::{blocks, bookings, bookings_reservations, reservations, room_classes, rooms},
-    services::pricing::*,
 };
 use app::{
     ReservationSettings,
+    billing::*,
     reservations::{
         PA,
         dtos::{CreateReservationRequest, ReservationItemRequest},
