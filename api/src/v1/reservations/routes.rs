@@ -28,11 +28,7 @@ pub async fn create_reservation(
     let request = json.into_inner();
 
     // Validate request
-    if request.items.is_empty() {
-        return Err(CreateReservationError::ValidationError(
-            "Reservation must have at least one item".to_string(),
-        ));
-    }
+    app::reservations::create::validate_request(&request)?;
 
     // Call the infrastructure layer to persist and calculate
     let cart = reservations::create::create_reservation(
@@ -44,13 +40,7 @@ pub async fn create_reservation(
     .await?;
 
     // Build response
-    let response = app::reservations::create::ReservationCreatedResponse {
-        reservation_id: cart.id,
-        code: cart.code,
-        total_amount: cart.payable_amount,
-        status: format!("{:?}", cart.status),
-        expires_at: cart.expires_at,
-    };
+    let response = app::reservations::create::build_response(cart);
 
     Ok(HttpResponse::Created().json(response))
 }

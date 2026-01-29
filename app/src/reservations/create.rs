@@ -1,19 +1,11 @@
 use crate::reservations::{
     dtos::CreateReservationRequest, errors::ReservationError, types::ReservationCart,
 };
-use crate::settings::ReservationSettings;
 use chrono::{DateTime, Utc};
 use serde::Serialize;
 use thiserror::Error;
 use utoipa::ToSchema;
 use uuid::Uuid;
-
-/// Command for creating a reservation
-#[derive(Debug, Clone)]
-pub struct CreateReservationCommand {
-    pub guest_id: Uuid,
-    pub request: CreateReservationRequest,
-}
 
 /// Success response when reservation is created
 #[derive(Debug, Serialize, ToSchema)]
@@ -58,42 +50,23 @@ impl actix_web::ResponseError for CreateReservationError {
     }
 }
 
-/// Execute the create reservation command
-///
-/// This is the orchestrator that:
-/// 1. Validates the request
-/// 2. Calls the pricing calculator to determine costs
-/// 3. Calls the infrastructure layer to persist data
-/// 4. Returns a structured response
-pub async fn execute<F, Fut>(
-    command: CreateReservationCommand,
-    settings: &ReservationSettings,
-    persist_fn: F,
-) -> Result<ReservationCreatedResponse, CreateReservationError>
-where
-    F: FnOnce(Uuid, CreateReservationRequest, &ReservationSettings) -> Fut,
-    Fut: std::future::Future<Output = Result<ReservationCart, ReservationError>>,
-{
-    // Step 1: Validate request
-    if command.request.items.is_empty() {
+/// Validate reservation request
+pub fn validate_request(request: &CreateReservationRequest) -> Result<(), CreateReservationError> {
+    if request.items.is_empty() {
         return Err(CreateReservationError::ValidationError(
             "Reservation must have at least one item".to_string(),
         ));
     }
+    Ok(())
+}
 
-    // Step 2: Call infrastructure to persist
-    // The pricing calculations are still being done in the infra layer
-    // We'll refactor that in Phase 3
-    let cart = persist_fn(command.guest_id, command.request, settings).await?;
-
-    // Step 3: Build response
-    let response = ReservationCreatedResponse {
+/// Build response from reservation cart
+pub fn build_response(cart: ReservationCart) -> ReservationCreatedResponse {
+    ReservationCreatedResponse {
         reservation_id: cart.id,
         code: cart.code,
         total_amount: cart.payable_amount,
         status: format!("{:?}", cart.status),
         expires_at: cart.expires_at,
-    };
-
-    Ok(response)
+    }
 }
