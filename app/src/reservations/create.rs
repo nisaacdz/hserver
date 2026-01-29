@@ -5,6 +5,7 @@ use crate::settings::ReservationSettings;
 use chrono::{DateTime, Utc};
 use serde::Serialize;
 use thiserror::Error;
+use utoipa::ToSchema;
 use uuid::Uuid;
 
 /// Command for creating a reservation
@@ -15,7 +16,7 @@ pub struct CreateReservationCommand {
 }
 
 /// Success response when reservation is created
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, ToSchema)]
 pub struct ReservationCreatedResponse {
     pub reservation_id: Uuid,
     pub code: String,

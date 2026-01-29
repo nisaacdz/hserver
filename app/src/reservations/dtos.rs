@@ -1,8 +1,9 @@
 use chrono::{DateTime, Utc};
 use serde::Deserialize;
+use utoipa::ToSchema;
 use uuid::Uuid;
 
-#[derive(Deserialize, Debug, Clone)]
+#[derive(Deserialize, Debug, Clone, ToSchema)]
 pub struct CreateReservationRequest {
     pub items: Vec<ReservationItemRequest>,
     pub currency: String,
@@ -15,7 +16,7 @@ pub struct AddToCartRequest {
     pub item: ReservationItemRequest,
 }
 
-#[derive(Deserialize, Debug, Clone)]
+#[derive(Deserialize, Debug, Clone, ToSchema)]
 pub struct ReservationItemRequest {
     pub room_id: Uuid,
     pub start_time: DateTime<Utc>,
