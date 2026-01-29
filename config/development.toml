@@ -11,3 +11,8 @@ environment = "development"
 
 [security]
 session_duration = 3600
+
+[reservation]
+grace_period = "15m"
+discount_rate = 0.0
+vat_rate = 0.15
